@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - TIC Nexus{% endblock %}
+
+{% block extra_css %}
+<script src="/static/js/auth-check.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="columns is-gapless" style="min-height: 100vh;" x-data="dashboardApp()">
+    <!-- Sidebar -->
+    {% set active_page = 'dashboard' %}
+    {% include 'sidebar.html' %}
+
+    <!-- Main Content -->
+    <main class="column" style="background-color: #f8fafc;">
+        <div class="section">
+            <div class="container is-fluid">
+                <h2 class="title is-3 has-text-grey-dark mb-5">Dashboard Overview</h2>
+
+                <!-- Stats Cards -->
+                <div class="columns is-multiline mb-5">
+                    <div class="column is-one-fifth-widescreen is-one-third-desktop is-half-tablet">
+                        <div class="box has-hover-lift">
+                            <div class="level is-mobile">
+                                <div class="level-left">
+                                    <div>
+                                        <p class="heading">Total Books</p>
+                                        <p class="title is-3 has-text-grey-dark" x-text="stats.total_books">0</p>
+                                    </div>
+                                </div>
+                                <div class="level-right">
+                                    <span class="icon is-large has-text-grey-light">
+                                        <i class="fas fa-book fa-2x"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="column is-one-fifth-widescreen is-one-third-desktop is-half-tablet">
+                        <div class="box has-hover-lift">
+                            <div class="level is-mobile">
+                                <div class="level-left">
+                                    <div>
+                                        <p class="heading">Issued</p>
+                                        <p class="title is-3 has-text-warning" x-text="stats.total_issued">0</p>
+                                    </div>
+                                </div>
+                                <div class="level-right">
+                                    <span class="icon is-large has-text-grey-light">
+                                        <i class="fas fa-share-square fa-2x"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="column is-one-fifth-widescreen is-one-third-desktop is-half-tablet">
+                        <div class="box has-hover-lift">
+                            <div class="level is-mobile">
+                                <div class="level-left">
+                                    <div>
+                                        <p class="heading">Overdue</p>
+                                        <p class="title is-3 has-text-danger" x-text="stats.total_overdue">0</p>
+                                    </div>
+                                </div>
+                                <div class="level-right">
+                                    <span class="icon is-large has-text-grey-light">
+                                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="column is-one-fifth-widescreen is-one-third-desktop is-half-tablet">
+                        <div class="box has-hover-lift">
+                            <div class="level is-mobile">
+                                <div class="level-left">
+                                    <div>
+                                        <p class="heading">Users</p>
+                                        <p class="title is-3 has-text-info" x-text="stats.total_users">0</p>
+                                    </div>
+                                </div>
+                                <div class="level-right">
+                                    <span class="icon is-large has-text-grey-light">
+                                        <i class="fas fa-users fa-2x"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="column is-one-fifth-widescreen is-one-third-desktop is-half-tablet">
+                        <div class="box has-hover-lift">
+                            <div class="level is-mobile">
+                                <div class="level-left">
+                                    <div>
+                                        <p class="heading">Digital PDFs</p>
+                                        <p class="title is-3 has-text-success" x-text="stats.digital_library_count">0</p>
+                                    </div>
+                                </div>
+                                <div class="level-right">
+                                    <span class="icon is-large has-text-grey-light">
+                                        <i class="fas fa-file-pdf fa-2x"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="box">
+                    <h3 class="title is-5 has-text-grey-dark mb-4">Top 10 Subjects by Book Count</h3>
+                    <canvas id="subjectChart" height="80"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    function dashboardApp() {
+        return {
+            stats: {
+                total_books: 0,
+                total_issued: 0,
+                total_overdue: 0,
+                total_users: 0,
+                digital_library_count: 0
+            },
+            chart: null,
+            isAdmin: false,
+            userName: '',
+
+            async init() {
+                const userRole = localStorage.getItem('user_role');
+                this.isAdmin = userRole === 'admin' || userRole === 'librarian';
+                this.userName = localStorage.getItem('full_name') || localStorage.getItem('username') || 'User';
+                await this.loadStats();
+                await this.loadSubjectDistribution();
+            },
+
+            async loadStats() {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch('/api/dashboard/stats', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    this.stats = await response.json();
+                }
+            },
+
+            async loadSubjectDistribution() {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch('/api/dashboard/subject-distribution', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.renderChart(data);
+                }
+            },
+
+            renderChart(data) {
+                const ctx = document.getElementById('subjectChart').getContext('2d');
+                
+                // Generate gradient colors for top 10
+                const colors = [
+                    '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
+                    '#14b8a6', '#6366f1', '#ef4444', '#06b6d4', '#84cc16'
+                ];
+                
+                // Register the plugin before creating chart
+                const labelPlugin = {
+                    id: 'inlineLabels',
+                    afterDatasetsDraw(chart) {
+                        const ctx = chart.ctx;
+                        ctx.save();
+                        
+                        const meta = chart.getDatasetMeta(0);
+                        
+                        console.log('Drawing labels, bars count:', meta.data.length);
+                        
+                        meta.data.forEach((bar, index) => {
+                            const value = chart.data.datasets[0].data[index];
+                            const label = chart.data.labels[index];
+                            
+                            // Get bar dimensions
+                            const x = bar.x;
+                            const y = bar.y;
+                            const base = bar.base;
+                            const width = x - base;
+                            
+                            console.log(`Bar ${index}: ${label}, width=${width}, x=${x}, base=${base}, y=${y}`);
+                            
+                            // Text styling
+                            ctx.fillStyle = 'white';
+                            ctx.font = 'bold 14px sans-serif';
+                            ctx.textBaseline = 'middle';
+                            
+                            // Always draw, regardless of width (for debugging)
+                            ctx.textAlign = 'left';
+                            ctx.fillText(label, base + 10, y);
+                            
+                            // Draw count on right (inside bar)
+                            ctx.textAlign = 'right';
+                            ctx.fillText(value + ' books', x - 10, y);
+                        });
+                        
+                        ctx.restore();
+                    }
+                };
+                
+                this.chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(d => d.subject),
+                        datasets: [{
+                            label: 'Number of Books',
+                            data: data.map(d => d.count),
+                            backgroundColor: colors.slice(0, data.length),
+                            borderColor: colors.slice(0, data.length).map(c => c + 'dd'),
+                            borderWidth: 2,
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Horizontal bars
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ' + context.parsed.x + ' books';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { 
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Number of Books'
+                                },
+                                grid: {
+                                    display: true
+                                }
+                            },
+                            y: {
+                                display: false, // Hide y-axis labels
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        },
+                        layout: {
+                            padding: {
+                                left: 10,
+                                right: 10
+                            }
+                        }
+                    },
+                    plugins: [labelPlugin]
+                });
+            },
+
+            logout() {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_role');
+                localStorage.removeItem('user_id');
+                localStorage.removeItem('username');
+                localStorage.removeItem('full_name');
+                window.location.href = '/';
+            },
+
+            openChangePasswordModal() {
+                window.openChangePasswordModal();
+            }
+        }
+    }
+</script>
+
+<!-- Include Change Password Modal -->
+{% include 'change_password_modal.html' %}
+
+{% endblock %}

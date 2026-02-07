@@ -1,0 +1,495 @@
+{% extends "base.html" %}
+
+{% block title %}Digital Library - TIC Nexus{% endblock %}
+
+{% block content %}
+<div style="min-height: 100vh; background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 50%, #d1fae5 100%);" x-data="publicDigitalLibraryApp()">
+    <!-- Navbar -->
+    <nav class="navbar is-white is-fixed-top has-shadow" role="navigation" aria-label="main navigation">
+        <div class="container">
+            <div class="navbar-brand">
+                <a class="navbar-item" href="/">
+                    <div class="has-gradient-navy is-flex is-align-items-center is-justify-content-center" style="width: 48px; height: 48px; border-radius: 8px; margin-right: 12px;">
+                        <span class="icon is-large has-text-white">
+                            <i class="fas fa-book fa-lg"></i>
+                        </span>
+                    </div>
+                    <div>
+                        <p class="navbar-brand-text mb-0">TIC Nexus</p>
+                        <p class="navbar-brand-subtext">Digital Library</p>
+                    </div>
+                </a>
+
+                <a role="button" class="navbar-burger" :class="{ 'is-active': mobileMenuActive }" @click="mobileMenuActive = !mobileMenuActive" aria-label="menu" aria-expanded="false">
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                </a>
+            </div>
+
+            <div class="navbar-menu" :class="{ 'is-active': mobileMenuActive }">
+                <div class="navbar-end">
+                    <a class="navbar-item has-text-weight-semibold" href="/">
+                        <span class="icon">
+                            <i class="fas fa-home"></i>
+                        </span>
+                        <span>Home</span>
+                    </a>
+                    <a class="navbar-item has-text-weight-semibold is-active" href="/public/digital-library">
+                        <span class="icon">
+                            <i class="fas fa-book-open"></i>
+                        </span>
+                        <span>Digital Library</span>
+                    </a>
+                    
+                    <!-- Show when NOT logged in -->
+                    <div class="navbar-item" x-show="!isLoggedIn">
+                        <div class="buttons">
+                            <a href="/login" class="button has-gradient-emerald has-text-weight-bold">
+                                <span class="icon">
+                                    <i class="fas fa-sign-in-alt"></i>
+                                </span>
+                                <span>Login</span>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Show when logged in -->
+                    <div x-show="isLoggedIn" class="navbar-item has-dropdown is-hoverable">
+                        <a class="navbar-link">
+                            <span class="icon has-text-success">
+                                <i class="fas fa-user-circle"></i>
+                            </span>
+                            <span x-text="username" class="has-text-weight-semibold"></span>
+                        </a>
+                        <div class="navbar-dropdown is-right">
+                            <a class="navbar-item" href="/dashboard">
+                                <span class="icon has-text-info">
+                                    <i class="fas fa-tachometer-alt"></i>
+                                </span>
+                                <span>Dashboard</span>
+                            </a>
+                            <hr class="navbar-divider">
+                            <a class="navbar-item" @click.prevent="logout">
+                                <span class="icon has-text-danger">
+                                    <i class="fas fa-sign-out-alt"></i>
+                                </span>
+                                <span>Logout</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="section" style="margin-top: 52px; padding-top: 3rem;">
+        <div class="container">
+            <!-- Header -->
+            <div class="has-text-centered mb-6">
+                <h1 class="title is-1 has-text-weight-bold" style="color: #052c52;">Digital Library</h1>
+                <p class="subtitle is-4 has-text-grey">Browse and download technical documents</p>
+            </div>
+
+            <!-- Search and Filter Section -->
+            <div class="box has-shadow-large" style="border-radius: 16px;">
+                <!-- Search Bar -->
+                <div class="field has-addons mb-5">
+                    <div class="control is-expanded has-icons-left">
+                        <input 
+                            x-model="searchQuery"
+                            @keyup.enter="loadBooks"
+                            @input="debounceSearch"
+                            class="input is-medium" 
+                            type="text" 
+                            placeholder="Search by title, author, ISBN, subject..."
+                        >
+                        <span class="icon is-left is-medium">
+                            <i class="fas fa-search"></i>
+                        </span>
+                    </div>
+                    <div class="control">
+                        <button 
+                            @click="loadBooks"
+                            :class="{ 'is-loading': loading }"
+                            class="button is-medium has-gradient-emerald has-text-weight-bold"
+                        >
+                            Search
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="columns is-multiline">
+                    <div class="column is-3">
+                        <div class="field">
+                            <label class="label is-small">Subject</label>
+                            <div class="control">
+                                <div class="select is-fullwidth">
+                                    <select x-model="filterSubject" @change="loadBooks">
+                                        <option value="">All Subjects</option>
+                                        <template x-for="subject in subjects" :key="subject">
+                                            <option :value="subject" x-text="subject"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-3">
+                        <div class="field">
+                            <label class="label is-small">Category</label>
+                            <div class="control">
+                                <div class="select is-fullwidth">
+                                    <select x-model="filterCategory" @change="loadBooks">
+                                        <option value="">All Categories</option>
+                                        <template x-for="category in categories" :key="category">
+                                            <option :value="category" x-text="category"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-3">
+                        <div class="field">
+                            <label class="label is-small">Language</label>
+                            <div class="control">
+                                <div class="select is-fullwidth">
+                                    <select x-model="filterLanguage" @change="loadBooks">
+                                        <option value="">All Languages</option>
+                                        <template x-for="language in languages" :key="language">
+                                            <option :value="language" x-text="language"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-3">
+                        <div class="field">
+                            <label class="label is-small">Format</label>
+                            <div class="control">
+                                <div class="select is-fullwidth">
+                                    <select x-model="filterFormat" @change="loadBooks">
+                                        <option value="">All Formats</option>
+                                        <option value="pdf">PDF</option>
+                                        <option value="epub">EPUB</option>
+                                        <option value="mobi">MOBI</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Count -->
+                <div class="has-text-grey mb-4" x-show="!loading">
+                    <span x-text="books.length"></span> document<span x-show="books.length !== 1">s</span> found
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div x-show="loading" class="has-text-centered my-6">
+                <button class="button is-large is-loading has-gradient-emerald">Loading</button>
+            </div>
+
+            <!-- Books Grid -->
+            <div x-show="!loading && books.length > 0" class="columns is-multiline mt-5">
+                <template x-for="book in books" :key="book.id">
+                    <div class="column is-4">
+                        <div class="card digital-book-card" style="height: 100%; border-radius: 12px;">
+                            <div class="card-content">
+                                <!-- Format Badge -->
+                                <div class="is-flex is-justify-content-space-between is-align-items-start mb-3">
+                                    <span class="tag is-info is-uppercase" x-text="book.file_format"></span>
+                                    <span class="tag is-light">
+                                        <span class="icon">
+                                            <i class="fas fa-file"></i>
+                                        </span>
+                                        <span x-text="formatFileSize(book.file_size)"></span>
+                                    </span>
+                                </div>
+
+                                <!-- Title & Author -->
+                                <h3 class="title is-5 mb-3" style="color: #052c52; min-height: 3em; line-height: 1.5em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;" x-text="book.title"></h3>
+                                <p class="subtitle is-6 has-text-grey mb-3">
+                                    <span class="icon-text">
+                                        <span class="icon">
+                                            <i class="fas fa-user"></i>
+                                        </span>
+                                        <span x-text="book.author"></span>
+                                    </span>
+                                </p>
+
+                                <!-- Metadata -->
+                                <div class="content is-small has-text-grey mb-4" style="min-height: 4em;">
+                                    <p x-show="book.publisher" class="mb-1">
+                                        <strong>Publisher:</strong> <span x-text="book.publisher"></span>
+                                    </p>
+                                    <p x-show="book.publication_year" class="mb-1">
+                                        <strong>Year:</strong> <span x-text="book.publication_year"></span>
+                                    </p>
+                                    <p x-show="book.subject" class="mb-1">
+                                        <strong>Subject:</strong> <span x-text="book.subject"></span>
+                                    </p>
+                                </div>
+
+                                <!-- Stats -->
+                                <div class="tags mb-4">
+                                    <span class="tag is-light">
+                                        <span class="icon">
+                                            <i class="fas fa-eye"></i>
+                                        </span>
+                                        <span x-text="book.view_count"></span>
+                                    </span>
+                                    <span class="tag is-light">
+                                        <span class="icon">
+                                            <i class="fas fa-download"></i>
+                                        </span>
+                                        <span x-text="book.download_count"></span>
+                                    </span>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="buttons">
+                                    <button 
+                                        @click="viewBook(book.id, book.file_format)"
+                                        class="button is-fullwidth has-gradient-navy"
+                                        :disabled="book.file_format !== 'pdf'"
+                                    >
+                                        <span class="icon">
+                                            <i class="fas fa-eye"></i>
+                                        </span>
+                                        <span>View</span>
+                                    </button>
+                                    <button 
+                                        @click="downloadBook(book.id)"
+                                        class="button is-fullwidth has-gradient-emerald"
+                                    >
+                                        <span class="icon">
+                                            <i class="fas fa-download"></i>
+                                        </span>
+                                        <span>Download</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- No Results -->
+            <div x-show="!loading && books.length === 0" class="has-text-centered my-6">
+                <article class="message is-info" style="max-width: 600px; margin: 0 auto;">
+                    <div class="message-body">
+                        <span class="icon is-large has-text-info mb-3">
+                            <i class="fas fa-search fa-3x"></i>
+                        </span>
+                        <p class="title is-5">No documents found</p>
+                        <p class="subtitle is-6 has-text-grey">Try adjusting your search or filters</p>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Modal -->
+    <div class="modal" :class="{ 'is-active': showViewModal }" x-cloak>
+        <div class="modal-background" @click="showViewModal = false"></div>
+        <div class="modal-content" style="width: 90vw; height: 90vh;">
+            <div class="box" style="height: 100%; padding: 0; overflow: hidden;">
+                <iframe 
+                    :src="viewUrl" 
+                    style="width: 100%; height: 100%; border: none;"
+                    x-show="viewUrl"
+                ></iframe>
+            </div>
+        </div>
+        <button class="modal-close is-large" @click="showViewModal = false" aria-label="close"></button>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer has-background-dark has-text-white mt-6">
+        <div class="content has-text-centered">
+            <h4 class="title is-5 has-text-white mb-2">TIC Nexus - Digital Library</h4>
+            <p class="has-text-grey-light mb-4">Bharat Electronics Limited - Technical Information Center</p>
+            <p class="is-size-7 has-text-grey-light mb-2">
+                &copy; 2026 BEL. All rights reserved.
+            </p>
+            <p class="is-size-7 has-text-grey">
+                <a href="/login" class="has-text-success">Login</a> for full system access
+            </p>
+        </div>
+    </footer>
+</div>
+
+<script>
+    function publicDigitalLibraryApp() {
+        return {
+            mobileMenuActive: false,
+            isLoggedIn: false,
+            username: '',
+            books: [],
+            subjects: [],
+            categories: [],
+            languages: [],
+            searchQuery: '',
+            filterSubject: '',
+            filterCategory: '',
+            filterLanguage: '',
+            filterFormat: '',
+            loading: false,
+            showViewModal: false,
+            viewUrl: '',
+            searchTimeout: null,
+
+            async init() {
+                // Check if user is logged in
+                const token = localStorage.getItem('access_token');
+                if (token) {
+                    this.isLoggedIn = true;
+                    await this.getUserInfo();
+                }
+                
+                await Promise.all([
+                    this.loadBooks(),
+                    this.loadFilters()
+                ]);
+            },
+
+            async getUserInfo() {
+                const token = localStorage.getItem('access_token');
+                try {
+                    const response = await fetch('/api/user/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (response.ok) {
+                        const user = await response.json();
+                        this.username = user.username;
+                    }
+                } catch (error) {
+                    console.error('Error fetching user info:', error);
+                }
+            },
+
+            async loadBooks() {
+                this.loading = true;
+                let url = '/api/digital-library?limit=500';
+                
+                if (this.searchQuery) url += `&search=${encodeURIComponent(this.searchQuery)}`;
+                if (this.filterSubject) url += `&subject=${encodeURIComponent(this.filterSubject)}`;
+                if (this.filterCategory) url += `&category=${encodeURIComponent(this.filterCategory)}`;
+                if (this.filterLanguage) url += `&language=${encodeURIComponent(this.filterLanguage)}`;
+                if (this.filterFormat) url += `&file_format=${encodeURIComponent(this.filterFormat)}`;
+
+                try {
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        this.books = await response.json();
+                    } else {
+                        window.toast.error('Failed to load digital books');
+                    }
+                } catch (error) {
+                    console.error('Error loading books:', error);
+                    window.toast.error('Network error while loading books');
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            async loadFilters() {
+                try {
+                    const [subjectsRes, categoriesRes, languagesRes] = await Promise.all([
+                        fetch('/api/digital-library/filters/subjects'),
+                        fetch('/api/digital-library/filters/categories'),
+                        fetch('/api/digital-library/filters/languages')
+                    ]);
+
+                    if (subjectsRes.ok) this.subjects = await subjectsRes.json();
+                    if (categoriesRes.ok) this.categories = await categoriesRes.json();
+                    if (languagesRes.ok) this.languages = await languagesRes.json();
+                } catch (error) {
+                    console.error('Error loading filters:', error);
+                }
+            },
+
+            debounceSearch() {
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(() => {
+                    this.loadBooks();
+                }, 500);
+            },
+
+            viewBook(bookId, format) {
+                if (format !== 'pdf') {
+                    window.toast.info('Only PDF files can be viewed in browser. Please download to view.');
+                    return;
+                }
+                this.viewUrl = `/api/digital-library/${bookId}/view`;
+                this.showViewModal = true;
+            },
+
+            downloadBook(bookId) {
+                window.open(`/api/digital-library/${bookId}/download`, '_blank');
+                window.toast.success('Download started!');
+            },
+
+            formatFileSize(bytes) {
+                if (!bytes) return 'Unknown';
+                const mb = bytes / (1024 * 1024);
+                if (mb < 1) {
+                    return `${(bytes / 1024).toFixed(1)} KB`;
+                }
+                return `${mb.toFixed(1)} MB`;
+            },
+
+            logout() {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_role');
+                localStorage.removeItem('user_id');
+                this.isLoggedIn = false;
+                this.username = '';
+                window.location.href = '/';
+            }
+        }
+    }
+</script>
+
+<style>
+    [x-cloak] { display: none !important; }
+    
+    .digital-book-card {
+        transition: all 0.3s ease;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .digital-book-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .navbar-brand-text {
+        color: #052c52 !important;
+        font-weight: 700;
+        font-size: 1.5rem;
+    }
+    
+    .navbar-brand-subtext {
+        color: #6b7280;
+        font-size: 0.75rem;
+    }
+
+    .has-gradient-navy {
+        background: linear-gradient(135deg, #052c52 0%, #0a4c7d 100%);
+        color: white;
+    }
+    
+    .has-gradient-emerald {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+</style>
+{% endblock %}

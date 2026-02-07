@@ -1,0 +1,13 @@
+TLC NEXUS - BOOK MIGRATION REPORT
+================================================================================
+Migration Date: 2026-02-04 15:12:42
+Mode: LIVE MIGRATION
+
+STATISTICS
+--------------------------------------------------------------------------------
+Total Records:     6216
+Successful:        6216
+Duplicates:        0
+Errors:            0
+Success Rate:      100.00%
+

@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory - TIC Nexus{% endblock %}
+
+{% block extra_css %}
+<script src="/static/js/auth-check.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="columns is-gapless" style="min-height: 100vh;" x-data="inventoryApp()">
+    <!-- Sidebar -->
+    {% set active_page = 'inventory' %}
+    {% include 'sidebar.html' %}
+
+    <!-- Main Content -->
+    <main class="column" style="background-color: #f8fafc;">
+        <div class="section">
+            <div class="container is-fluid">
+                <div class="level">
+                    <div class="level-left">
+                        <div class="level-item">
+                            <h2 class="title is-3 has-text-grey-dark">Book Inventory</h2>
+                        </div>
+                    </div>
+                    <div class="level-right">
+                        <div class="level-item">
+                            <button @click="openAddModal" x-show="isAdmin" class="button is-success">
+                                <span class="icon"><i class="fas fa-plus"></i></span>
+                                <span>Add New Book</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search and Filters -->
+                <div class="box mb-5">
+                    <div class="columns">
+                        <div class="column">
+                            <div class="field">
+                                <div class="control has-icons-left">
+                                    <input 
+                                        x-model="searchQuery"
+                                        @input="searchBooks"
+                                        type="text" 
+                                        placeholder="Search by title, author, acc no..."
+                                        class="input"
+                                    >
+                                    <span class="icon is-left">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column">
+                            <div class="field">
+                                <div class="control">
+                                    <div class="select is-fullwidth">
+                                        <select x-model="filterSubject" @change="searchBooks">
+                                            <option value="">All Subjects</option>
+                                            <template x-for="subject in subjects" :key="subject">
+                                                <option :value="subject" x-text="subject"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column">
+                            <div class="field">
+                                <div class="control">
+                                    <div class="select is-fullwidth">
+                                        <select x-model="filterStatus" @change="searchBooks">
+                                            <option value="">All Status</option>
+                                            <option value="false">Available</option>
+                                            <option value="true">Issued</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Books Table -->
+                <div class="box" style="overflow-x: auto;">
+                    <table class="table is-fullwidth is-hoverable is-striped">
+                        <thead>
+                            <tr>
+                                <th>Acc No</th>
+                                <th>Title</th>
+                                <th>Author</th>
+                                <th>Subject</th>
+                                <th>Storage</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="book in books" :key="book.id">
+                                <tr>
+                                    <td><strong x-text="book.acc_no"></strong></td>
+                                    <td x-text="book.title"></td>
+                                    <td x-text="book.author"></td>
+                                    <td x-text="book.subject || '-'"></td>
+                                    <td x-text="book.storage_loc"></td>
+                                    <td>
+                                        <span :class="book.is_issued ? 'tag is-warning' : 'tag is-success'">
+                                            <span x-text="book.is_issued ? 'Issued' : 'Available'"></span>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="buttons are-small">
+                                            <button @click="editBook(book)" x-show="isAdmin" class="button is-info is-light">
+                                                <span class="icon is-small"><i class="fas fa-edit"></i></span>
+                                            </button>
+                                            <button @click="deleteBook(book.id)" x-show="isAdmin && !book.is_issued" class="button is-danger is-light">
+                                                <span class="icon is-small"><i class="fas fa-trash"></i></span>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Modal -->
+    <div x-show="showModal" class="modal" :class="{'is-active': showModal}" x-cloak>
+        <div class="modal-background" @click="showModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title" x-text="editMode ? 'Edit Book' : 'Add New Book'"></p>
+                <button class="delete" @click="showModal = false" aria-label="close"></button>
+            </header>
+            <section class="modal-card-body">
+                <form @submit.prevent="saveBook">
+                    <div class="columns is-multiline">
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">Accession No *</label>
+                                <div class="control">
+                                    <input x-model="currentBook.acc_no" :disabled="editMode" required class="input" type="text">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">Storage Location *</label>
+                                <div class="field has-addons">
+                                    <div class="control">
+                                        <a class="button is-static">
+                                            TIC-R-
+                                        </a>
+                                    </div>
+                                    <div class="control is-expanded">
+                                        <input 
+                                            x-model="rackNumber" 
+                                            @input="updateStorageLocation"
+                                            type="number" 
+                                            min="1" 
+                                            placeholder="1" 
+                                            required 
+                                            class="input"
+                                        >
+                                    </div>
+                                    <div class="control">
+                                        <a class="button is-static">
+                                            -S-
+                                        </a>
+                                    </div>
+                                    <div class="control is-expanded">
+                                        <input 
+                                            x-model="shelfNumber" 
+                                            @input="updateStorageLocation"
+                                            type="number" 
+                                            min="1" 
+                                            placeholder="3" 
+                                            required 
+                                            class="input"
+                                        >
+                                    </div>
+                                </div>
+                                <p class="help" x-show="currentBook.storage_loc">
+                                    Preview: <strong x-text="currentBook.storage_loc"></strong>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="column is-full">
+                            <div class="field">
+                                <label class="label">Title *</label>
+                                <div class="control">
+                                    <input x-model="currentBook.title" required class="input" type="text">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-full">
+                            <div class="field">
+                                <label class="label">Author *</label>
+                                <div class="control">
+                                    <input x-model="currentBook.author" required class="input" type="text">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">Subject</label>
+                                <div class="control">
+                                    <input x-model="currentBook.subject" class="input" type="text">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">Class No</label>
+                                <div class="control">
+                                    <input x-model="currentBook.class_no" class="input" type="text">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">Year</label>
+                                <div class="control">
+                                    <input x-model="currentBook.year" type="number" min="1800" max="2100" class="input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">ISBN</label>
+                                <div class="control">
+                                    <input x-model="currentBook.isbn" class="input" type="text">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-full">
+                            <div class="field">
+                                <label class="label">Publisher Info</label>
+                                <div class="control">
+                                    <textarea x-model="currentBook.publisher_info" rows="2" class="textarea"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </section>
+            <footer class="modal-card-foot">
+                <button @click="saveBook" class="button is-success">Save</button>
+                <button @click="showModal = false" class="button">Cancel</button>
+            </footer>
+        </div>
+    </div>
+</div>
+
+<script>
+    function inventoryApp() {
+        return {
+            books: [],
+            subjects: [],
+            searchQuery: '',
+            filterSubject: '',
+            filterStatus: '',
+            showModal: false,
+            editMode: false,
+            isAdmin: false,
+            userName: '',
+            currentBook: {},
+            rackNumber: '',
+            shelfNumber: '',
+
+            async init() {
+                const userRole = localStorage.getItem('user_role');
+                this.isAdmin = userRole === 'admin' || userRole === 'librarian';
+                this.userName = localStorage.getItem('full_name') || localStorage.getItem('username') || 'User';
+                await this.loadBooks();
+                await this.loadSubjects();
+            },
+
+            updateStorageLocation() {
+                if (this.rackNumber && this.shelfNumber) {
+                    this.currentBook.storage_loc = `TIC-R-${this.rackNumber}-S-${this.shelfNumber}`;
+                } else {
+                    this.currentBook.storage_loc = '';
+                }
+            },
+
+            parseStorageLocation(storageLocation) {
+                // Parse existing storage location like "TIC-R-1-S-3"
+                const match = storageLocation.match(/^TIC-R-(\d+)-S-(\d+)$/);
+                if (match) {
+                    this.rackNumber = match[1];
+                    this.shelfNumber = match[2];
+                } else {
+                    this.rackNumber = '';
+                    this.shelfNumber = '';
+                }
+            },
+
+            async loadBooks() {
+                const token = localStorage.getItem('access_token');
+                let url = '/api/books?limit=500';
+                if (this.searchQuery) url += `&search=${encodeURIComponent(this.searchQuery)}`;
+                if (this.filterSubject) url += `&subject=${encodeURIComponent(this.filterSubject)}`;
+                if (this.filterStatus) url += `&is_issued=${this.filterStatus}`;
+
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    this.books = await response.json();
+                }
+            },
+
+            async loadSubjects() {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch('/api/subjects', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    this.subjects = await response.json();
+                }
+            },
+
+            searchBooks() {
+                this.loadBooks();
+            },
+
+            openAddModal() {
+                this.editMode = false;
+                this.currentBook = { acc_no: '', title: '', author: '', storage_loc: '' };
+                this.rackNumber = '';
+                this.shelfNumber = '';
+                this.showModal = true;
+            },
+
+            editBook(book) {
+                this.editMode = true;
+                this.currentBook = { ...book };
+                this.parseStorageLocation(book.storage_loc);
+                this.showModal = true;
+            },
+
+            async saveBook() {
+                const token = localStorage.getItem('access_token');
+                const url = this.editMode ? `/api/books/${this.currentBook.id}` : '/api/books';
+                const method = this.editMode ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.currentBook)
+                });
+
+                if (response.ok) {
+                    this.showModal = false;
+                    await this.loadBooks();
+                    await this.loadSubjects();
+                } else {
+                    const error = await response.json();
+                    alert(error.detail);
+                }
+            },
+
+            async deleteBook(bookId) {
+                if (!confirm('Are you sure you want to delete this book?')) return;
+
+                const token = localStorage.getItem('access_token');
+                const response = await fetch(`/api/books/${bookId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    await this.loadBooks();
+                } else {
+                    const error = await response.json();
+                    alert(error.detail);
+                }
+            },
+
+            logout() {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_role');
+                localStorage.removeItem('user_id');
+                localStorage.removeItem('username');
+                localStorage.removeItem('full_name');
+                window.location.href = '/';
+            },
+
+            openChangePasswordModal() {
+                window.openChangePasswordModal();
+            }
+        }
+    }
+</script>
+
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+
+<!-- Include Change Password Modal -->
+{% include 'change_password_modal.html' %}
+
+{% endblock %}

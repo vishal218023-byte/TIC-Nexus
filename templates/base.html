@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TIC Nexus{% endblock %} - BEL</title>
+    <!-- Bulma CSS -->
+    <link rel="stylesheet" href="/static/css/bulma.min.css">
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="/static/css/animate.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+    <style>
+        :root {
+            --navy: #052c52;
+            --emerald: #10b981;
+            --light-gray: #f8fafc;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .gradient-navy {
+            background: linear-gradient(135deg, #052c52 0%, #0a4c7d 100%);
+        }
+        .gradient-emerald {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .hero-gradient {
+            background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 50%, #d1fae5 100%);
+        }
+        .navbar-brand-text {
+            color: #052c52 !important;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+        .navbar-brand-subtext {
+            color: #6b7280;
+            font-size: 0.75rem;
+        }
+        .has-gradient-navy {
+            background: linear-gradient(135deg, #052c52 0%, #0a4c7d 100%);
+            color: white;
+        }
+        .has-gradient-emerald {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        .has-hover-lift {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .has-hover-lift:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+        .sidebar-nav {
+            background: #052c52;
+            min-height: 100vh;
+            max-height: 100vh;
+            width: 250px;
+            overflow-y: auto;
+        }
+        .sidebar-nav a {
+            color: #d1d5db;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        .sidebar-nav a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .sidebar-nav a.is-active {
+            background: #10b981;
+            color: white;
+            border-left: 4px solid #059669;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% block content %}{% endblock %}
+    
+    <!-- Toast Notifications -->
+    <script src="/static/js/toast.js"></script>
+    <!-- Alpine.js -->
+    <script defer src="/static/js/alpine.min.js"></script>
+    <!-- Chart.js -->
+    <script src="/static/js/chart.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

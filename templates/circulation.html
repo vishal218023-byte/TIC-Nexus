@@ -1,0 +1,1266 @@
+{% extends "base.html" %}
+
+{% block title %}Circulation - TIC Nexus{% endblock %}
+
+{% block extra_css %}
+<script src="/static/js/auth-check.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="columns is-gapless" style="min-height: 100vh;" x-data="circulationApp()">
+    <!-- Toast Notification Container -->
+    <div class="toast-container">
+        <template x-for="toast in toasts" :key="toast.id">
+            <div x-show="toast.visible" 
+                 :class="'toast toast-' + toast.type"
+                 x-transition:enter="slideIn"
+                 x-transition:leave="toast-exit">
+                <span class="toast-icon">
+                    <i :class="{
+                        'fas fa-check-circle': toast.type === 'success',
+                        'fas fa-exclamation-circle': toast.type === 'error',
+                        'fas fa-exclamation-triangle': toast.type === 'warning',
+                        'fas fa-info-circle': toast.type === 'info'
+                    }"></i>
+                </span>
+                <div class="toast-message" x-text="toast.message"></div>
+                <button class="toast-close" @click="removeToast(toast.id)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
+    </div>
+    
+    <!-- Sidebar -->
+    {% set active_page = 'circulation' %}
+    {% include 'sidebar.html' %}
+
+    <!-- Main Content -->
+    <main class="column" style="background-color: #f8fafc;">
+        <div class="section">
+            <div class="container is-fluid">
+                <h2 class="title is-3 has-text-grey-dark mb-5">Circulation Management</h2>
+
+                <!-- Action Buttons (Admin Only) -->
+                <div x-show="isAdmin" class="columns mb-5">
+                    <div class="column">
+                        <button @click="openIssueModal" class="button is-info is-fullwidth is-medium">
+                            <span class="icon"><i class="fas fa-share-square"></i></span>
+                            <span>Issue Book</span>
+                        </button>
+                    </div>
+                    <div class="column">
+                        <button @click="openReturnModal" class="button is-success is-fullwidth is-medium">
+                            <span class="icon"><i class="fas fa-undo"></i></span>
+                            <span>Return Book</span>
+                        </button>
+                    </div>
+                    <div class="column">
+                        <button @click="openExtendModal" class="button is-warning is-fullwidth is-medium">
+                            <span class="icon"><i class="fas fa-clock"></i></span>
+                            <span>Extend Due Date</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Transactions Table -->
+                <div class="box">
+                    <div class="field mb-4">
+                        <div class="control">
+                            <div class="select">
+                                <select x-model="filterStatus" @change="loadTransactions">
+                                    <option value="">All Transactions</option>
+                                    <option value="Issued">Issued</option>
+                                    <option value="Overdue">Overdue</option>
+                                    <option value="Returned">Returned</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="overflow-x: auto;">
+                        <table class="table is-fullwidth is-hoverable is-striped">
+                            <thead>
+                                <tr>
+                                    <th>Book Details</th>
+                                    <th>Issued By</th>
+                                    <th>Issue Date</th>
+                                    <th>Due Date</th>
+                                    <th>Extensions</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="txn in transactions" :key="txn.id">
+                                    <tr :style="txn.is_overdue && txn.status !== 'Returned' ? 'background-color: #ffe8e8;' : (txn.is_due_soon ? 'background-color: #fffbeb;' : '')">
+                                        <td>
+                                            <div class="content is-small">
+                                                <p class="mb-1">
+                                                    <strong x-text="txn.book_acc_no"></strong> - <span x-text="txn.book_title"></span>
+                                                    <span x-show="txn.is_overdue && txn.status !== 'Returned'" class="icon has-text-danger" title="Overdue">
+                                                        <i class="fas fa-exclamation-triangle"></i>
+                                                    </span>
+                                                    <span x-show="txn.is_due_soon && !txn.is_overdue" class="icon has-text-warning" title="Due Soon">
+                                                        <i class="fas fa-clock"></i>
+                                                    </span>
+                                                </p>
+                                                <p class="is-size-7 has-text-grey" x-text="txn.book_author"></p>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="content is-small">
+                                                <p class="mb-0" x-text="txn.user_name"></p>
+                                                <p class="is-size-7 has-text-grey" x-text="txn.user_username"></p>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="is-size-7" x-text="formatDate(txn.issue_date)"></span>
+                                        </td>
+                                        <td>
+                                            <div>
+                                                <span class="is-size-7" x-text="formatDate(txn.due_date)"></span>
+                                                <span x-show="txn.is_overdue && txn.status !== 'Returned'" class="tag is-danger is-small ml-1">
+                                                    Overdue!
+                                                </span>
+                                                <span x-show="txn.is_due_soon && !txn.is_overdue" class="tag is-warning is-small ml-1">
+                                                    Due in <span x-text="txn.days_until_due"></span> days
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="tag is-small" :class="{
+                                                'is-success': txn.extension_count === 0,
+                                                'is-warning': txn.extension_count === 1,
+                                                'is-danger': txn.extension_count === 2
+                                            }">
+                                                <span x-text="txn.extension_count + '/2'"></span>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="tag" :class="{
+                                                'is-info': txn.status === 'Issued' && !txn.is_overdue,
+                                                'is-danger': txn.is_overdue && txn.status !== 'Returned',
+                                                'is-success': txn.status === 'Returned'
+                                            }">
+                                                <span x-text="txn.is_overdue && txn.status !== 'Returned' ? 'Overdue' : txn.status"></span>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="buttons are-small">
+                                                <button x-show="isAdmin && txn.status !== 'Returned'" @click="quickExtend(txn.id)" class="button is-warning is-light" title="Extend Due Date">
+                                                    <span class="icon is-small"><i class="fas fa-clock"></i></span>
+                                                </button>
+                                                <button x-show="isAdmin && txn.status !== 'Returned'" @click="quickReturn(txn.id)" class="button is-success is-light" title="Return Book">
+                                                    <span class="icon is-small"><i class="fas fa-check"></i></span>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Issue Modal -->
+    <div x-show="showIssueModal" class="modal" :class="{'is-active': showIssueModal}" x-cloak @click.away="bookSearchFocused = false">
+        <div class="modal-background" @click="showIssueModal = false"></div>
+        <div class="modal-card" style="width: 700px; max-width: 90vw;">
+            <header class="modal-card-head has-background-info">
+                <p class="modal-card-title has-text-white">Issue Book</p>
+                <button class="delete" @click="showIssueModal = false" aria-label="close"></button>
+            </header>
+            <section class="modal-card-body">
+                <form @submit.prevent="issueBook">
+                    <!-- Book Search Section -->
+                    <div class="field">
+                        <label class="label">Search Book *</label>
+                        <div class="control">
+                            <input 
+                                x-model="bookSearchQuery" 
+                                @input="searchAvailableBooks"
+                                @focus="bookSearchFocused = true"
+                                type="text" 
+                                placeholder="Search by Acc No, Title, or Author..."
+                                class="input"
+                                autocomplete="off"
+                            >
+                        </div>
+                        <!-- Search Results Dropdown -->
+                        <div x-show="bookSearchFocused && bookSearchResults.length > 0" 
+                             class="box mt-2" 
+                             style="max-height: 250px; overflow-y: auto; position: absolute; z-index: 100; width: 90%; background: white;">
+                            <template x-for="book in bookSearchResults" :key="book.id">
+                                <div @click="selectBook(book)" 
+                                     class="p-3 mb-2" 
+                                     style="cursor: pointer; border: 1px solid #e0e0e0; border-radius: 4px;"
+                                     :style="selectedBook && selectedBook.id === book.id ? 'background-color: #e8f4fd;' : (book.is_issued ? 'background-color: #ffe8e8; border-left: 4px solid #ff3860;' : '')"
+                                     @mouseenter="$el.style.backgroundColor = book.is_issued ? '#ffd0d0' : '#f5f5f5'"
+                                     @mouseleave="$el.style.backgroundColor = selectedBook && selectedBook.id === book.id ? '#e8f4fd' : (book.is_issued ? '#ffe8e8' : 'white')">
+                                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                                        <div style="flex: 1;">
+                                            <div class="mb-1">
+                                                <strong x-text="book.acc_no"></strong> - <span x-text="book.title"></span>
+                                            </div>
+                                            <div class="is-size-7 has-text-grey">
+                                                <span x-text="book.author"></span> | Storage: <span x-text="book.storage_loc"></span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span x-show="!book.is_issued" class="tag is-success is-light">Available</span>
+                                            <span x-show="book.is_issued" class="tag is-danger">
+                                                <i class="fas fa-ban"></i> Issued
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Book Not Available Warning -->
+                    <div x-show="selectedBook && selectedBook.is_issued" class="notification is-danger is-light mb-4">
+                        <p class="has-text-weight-bold mb-2">🚫 Book Not Available</p>
+                        <div class="content">
+                            <p><strong>This book is currently issued and cannot be issued again.</strong></p>
+                            <div class="mt-2">
+                                <p class="mb-1"><strong>Acc No:</strong> <span x-text="selectedBook?.acc_no"></span></p>
+                                <p class="mb-1"><strong>Title:</strong> <span x-text="selectedBook?.title"></span></p>
+                                <p class="mb-1"><strong>Author:</strong> <span x-text="selectedBook?.author"></span></p>
+                                <p class="mb-1"><strong>Storage:</strong> <span x-text="selectedBook?.storage_loc"></span></p>
+                            </div>
+                            <hr>
+                            <p class="is-size-7 has-text-grey">
+                                <i class="fas fa-info-circle"></i> Please wait for the book to be returned or select a different book.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Selected Book Preview -->
+                    <div x-show="selectedBook && !selectedBook.is_issued" class="notification is-info is-light mb-4">
+                        <p class="has-text-weight-bold mb-2">📚 Selected Book</p>
+                        <div class="content is-small">
+                            <p class="mb-1"><strong>Acc No:</strong> <span x-text="selectedBook?.acc_no"></span></p>
+                            <p class="mb-1"><strong>Title:</strong> <span x-text="selectedBook?.title"></span></p>
+                            <p class="mb-1"><strong>Author:</strong> <span x-text="selectedBook?.author"></span></p>
+                            <p class="mb-1"><strong>Storage:</strong> <span x-text="selectedBook?.storage_loc"></span></p>
+                        </div>
+                    </div>
+
+                    <!-- Borrower Details Section -->
+                    <div class="box" style="background-color: #fafafa;">
+                        <p class="has-text-weight-bold mb-3">👤 Borrower Details</p>
+                        <div class="columns is-multiline">
+                            <div class="column is-half">
+                                <div class="field">
+                                    <label class="label is-small">Name *</label>
+                                    <div class="control">
+                                        <input x-model="issueData.borrower_name" type="text" required class="input">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="column is-half">
+                                <div class="field">
+                                    <label class="label is-small">Staff No *</label>
+                                    <div class="control">
+                                        <input x-model="issueData.staff_no" type="text" required class="input">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="column is-half">
+                                <div class="field">
+                                    <label class="label is-small">Department *</label>
+                                    <div class="control">
+                                        <input x-model="issueData.department" type="text" required class="input">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="column is-half">
+                                <div class="field">
+                                    <label class="label is-small">SBU *</label>
+                                    <div class="control">
+                                        <input x-model="issueData.sbu" type="text" required class="input">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="column is-half">
+                                <div class="field">
+                                    <label class="label is-small">Int No</label>
+                                    <div class="control">
+                                        <input x-model="issueData.int_no" type="text" class="input">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="column is-half">
+                                <div class="field">
+                                    <label class="label is-small">Mobile No *</label>
+                                    <div class="control">
+                                        <input x-model="issueData.mob_no" type="tel" pattern="[0-9]{10}" required class="input" placeholder="10 digit mobile number">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Issue Duration -->
+                    <div class="columns">
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">Issue Duration (Days) *</label>
+                                <div class="control">
+                                    <input x-model.number="issueData.days" @input="calculateDueDate" type="number" min="1" max="90" required class="input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">Due Date</label>
+                                <div class="control">
+                                    <input :value="dueDatePreview" readonly class="input" style="background-color: #f5f5f5;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Notes -->
+                    <div class="field">
+                        <label class="label">Additional Notes</label>
+                        <div class="control">
+                            <textarea x-model="issueData.notes" rows="2" class="textarea" placeholder="Any special instructions or conditions..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </section>
+            <footer class="modal-card-foot">
+                <button @click="issueBook" :disabled="!selectedBook || selectedBook?.is_issued || isSubmitting" class="button is-info" :class="{'is-loading': isSubmitting}">
+                    <span class="icon"><i class="fas fa-check"></i></span>
+                    <span>Issue Book</span>
+                </button>
+                <button @click="closeIssueModal" class="button">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Return Modal -->
+    <div x-show="showReturnModal" class="modal" :class="{'is-active': showReturnModal}" x-cloak @click.away="transactionSearchFocused = false">
+        <div class="modal-background" @click="showReturnModal = false"></div>
+        <div class="modal-card" style="width: 700px; max-width: 90vw;">
+            <header class="modal-card-head has-background-success">
+                <p class="modal-card-title has-text-white">Return Book</p>
+                <button class="delete" @click="showReturnModal = false" aria-label="close"></button>
+            </header>
+            <section class="modal-card-body">
+                <form @submit.prevent="returnBook">
+                    <!-- Transaction Search Section -->
+                    <div class="field">
+                        <label class="label">Search Active Transaction *</label>
+                        <div class="control">
+                            <input 
+                                x-model="transactionSearchQuery" 
+                                @input="searchActiveTransactions"
+                                @focus="transactionSearchFocused = true"
+                                type="text" 
+                                placeholder="Search by Acc No, Book Title, or Borrower Name..."
+                                class="input"
+                                autocomplete="off"
+                            >
+                        </div>
+                        <!-- Search Results Dropdown -->
+                        <div x-show="transactionSearchFocused && transactionSearchResults.length > 0" 
+                             class="box mt-2" 
+                             style="max-height: 300px; overflow-y: auto; position: absolute; z-index: 100; width: 90%; background: white;">
+                            <template x-for="txn in transactionSearchResults" :key="txn.id">
+                                <div @click="selectTransaction(txn)" 
+                                     class="p-3 mb-2" 
+                                     style="cursor: pointer; border: 1px solid #e0e0e0; border-radius: 4px;"
+                                     :style="selectedTransaction && selectedTransaction.id === txn.id ? 'background-color: #e8ffe8;' : (txn.is_overdue ? 'background-color: #ffe8e8; border-left: 4px solid #ff3860;' : '')"
+                                     @mouseenter="$el.style.backgroundColor = txn.is_overdue ? '#ffd0d0' : '#f5f5f5'"
+                                     @mouseleave="$el.style.backgroundColor = selectedTransaction && selectedTransaction.id === txn.id ? '#e8ffe8' : (txn.is_overdue ? '#ffe8e8' : 'white')">
+                                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                                        <div style="flex: 1;">
+                                            <div class="mb-1">
+                                                <strong x-text="txn.book_acc_no"></strong> - <span x-text="txn.book_title"></span>
+                                            </div>
+                                            <div class="is-size-7 has-text-grey">
+                                                <span x-text="txn.book_author"></span>
+                                            </div>
+                                            <div class="is-size-7 mt-1">
+                                                Borrower: <strong x-text="txn.user_name"></strong>
+                                            </div>
+                                            <div class="is-size-7 has-text-grey">
+                                                Due: <span x-text="formatDate(txn.due_date)"></span>
+                                                <span x-show="txn.is_overdue" class="has-text-danger has-text-weight-bold"> - OVERDUE!</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span x-show="txn.is_overdue" class="tag is-danger">Overdue</span>
+                                            <span x-show="!txn.is_overdue" class="tag is-info">Issued</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Selected Transaction Preview -->
+                    <div x-show="selectedTransaction" class="notification is-light mb-4" :class="selectedTransaction?.is_overdue ? 'is-danger' : 'is-success'">
+                        <p class="has-text-weight-bold mb-2">📖 Transaction Details</p>
+                        <div class="content is-small">
+                            <div class="columns is-mobile">
+                                <div class="column">
+                                    <p class="mb-1"><strong>Book:</strong> <span x-text="selectedTransaction?.book_title"></span></p>
+                                    <p class="mb-1"><strong>Acc No:</strong> <span x-text="selectedTransaction?.book_acc_no"></span></p>
+                                    <p class="mb-1"><strong>Author:</strong> <span x-text="selectedTransaction?.book_author"></span></p>
+                                </div>
+                                <div class="column">
+                                    <p class="mb-1"><strong>Issued By:</strong> <span x-text="selectedTransaction?.user_name"></span></p>
+                                    <p class="mb-1"><strong>Issue Date:</strong> <span x-text="formatDate(selectedTransaction?.issue_date)"></span></p>
+                                    <p class="mb-1"><strong>Due Date:</strong> <span x-text="formatDate(selectedTransaction?.due_date)"></span></p>
+                                    <p class="mb-1"><strong>Extensions:</strong> <span x-text="selectedTransaction?.extension_count + '/2'"></span></p>
+                                </div>
+                            </div>
+                            <div x-show="selectedTransaction?.notes" class="mt-2">
+                                <p class="has-text-weight-bold mb-1">Notes:</p>
+                                <p class="is-size-7" style="white-space: pre-line;" x-text="selectedTransaction?.notes"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Return Notes -->
+                    <div class="field">
+                        <label class="label">Return Notes (Optional)</label>
+                        <div class="control">
+                            <textarea x-model="returnData.notes" rows="3" class="textarea" placeholder="Book condition, any damages, remarks..."></textarea>
+                        </div>
+                        <p class="help">Add any notes about the book's condition or the return</p>
+                    </div>
+                </form>
+            </section>
+            <footer class="modal-card-foot">
+                <button @click="returnBook" :disabled="!selectedTransaction || isReturning" class="button is-success" :class="{'is-loading': isReturning}">
+                    <span class="icon"><i class="fas fa-check"></i></span>
+                    <span>Return Book</span>
+                </button>
+                <button @click="closeReturnModal" class="button">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Extend Modal -->
+    <div x-show="showExtendModal" class="modal" :class="{'is-active': showExtendModal}" x-cloak @click.away="extendSearchFocused = false">
+        <div class="modal-background" @click="showExtendModal = false"></div>
+        <div class="modal-card" style="width: 700px; max-width: 90vw;">
+            <header class="modal-card-head has-background-warning">
+                <p class="modal-card-title">Extend Due Date</p>
+                <button class="delete" @click="showExtendModal = false" aria-label="close"></button>
+            </header>
+            <section class="modal-card-body">
+                <form @submit.prevent="extendBook">
+                    <!-- Transaction Search Section -->
+                    <div class="field">
+                        <label class="label">Search Active Transaction *</label>
+                        <div class="control">
+                            <input 
+                                x-model="extendSearchQuery" 
+                                @input="searchExtendableTransactions"
+                                @focus="extendSearchFocused = true"
+                                type="text" 
+                                placeholder="Search by Acc No, Book Title, or Borrower Name..."
+                                class="input"
+                                autocomplete="off"
+                            >
+                        </div>
+                        <!-- Search Results Dropdown -->
+                        <div x-show="extendSearchFocused && extendSearchResults.length > 0" 
+                             class="box mt-2" 
+                             style="max-height: 300px; overflow-y: auto; position: absolute; z-index: 100; width: 90%; background: white;">
+                            <template x-for="txn in extendSearchResults" :key="txn.id">
+                                <div @click="selectExtendTransaction(txn)" 
+                                     class="p-3 mb-2" 
+                                     style="cursor: pointer; border: 1px solid #e0e0e0; border-radius: 4px;"
+                                     :style="selectedExtendTransaction && selectedExtendTransaction.id === txn.id ? 'background-color: #fffbeb;' : (txn.is_overdue ? 'background-color: #ffe8e8; border-left: 4px solid #ff3860;' : '')"
+                                     @mouseenter="$el.style.backgroundColor = txn.is_overdue ? '#ffd0d0' : '#f5f5f5'"
+                                     @mouseleave="$el.style.backgroundColor = selectedExtendTransaction && selectedExtendTransaction.id === txn.id ? '#fffbeb' : (txn.is_overdue ? '#ffe8e8' : 'white')">
+                                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                                        <div style="flex: 1;">
+                                            <div class="mb-1">
+                                                <strong x-text="txn.book_acc_no"></strong> - <span x-text="txn.book_title"></span>
+                                            </div>
+                                            <div class="is-size-7 has-text-grey">
+                                                <span x-text="txn.book_author"></span>
+                                            </div>
+                                            <div class="is-size-7 mt-1">
+                                                Issued By: <strong x-text="txn.user_name"></strong>
+                                            </div>
+                                            <div class="is-size-7 has-text-grey">
+                                                Due: <span x-text="formatDate(txn.due_date)"></span>
+                                                <span x-show="txn.is_overdue" class="has-text-danger has-text-weight-bold"> - OVERDUE!</span>
+                                            </div>
+                                            <div class="is-size-7 mt-1">
+                                                <span class="tag is-small" :class="txn.extension_count === 0 ? 'is-success' : (txn.extension_count === 1 ? 'is-warning' : 'is-danger')">
+                                                    Extensions: <strong x-text="txn.extension_count + '/2'"></strong>
+                                                </span>
+                                                <span x-show="!txn.can_extend" class="tag is-small is-danger ml-1">
+                                                    <i class="fas fa-ban"></i> Max Reached
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span x-show="txn.is_overdue" class="tag is-danger">Overdue</span>
+                                            <span x-show="!txn.is_overdue" class="tag is-info">Issued</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Selected Transaction Preview -->
+                    <div x-show="selectedExtendTransaction" class="notification mb-4" :class="selectedExtendTransaction?.is_overdue ? 'is-danger is-light' : 'is-warning is-light'">
+                        <p class="has-text-weight-bold mb-2">📖 Transaction Details</p>
+                        <div class="content is-small">
+                            <div class="columns is-mobile">
+                                <div class="column">
+                                    <p class="mb-1"><strong>Book:</strong> <span x-text="selectedExtendTransaction?.book_title"></span></p>
+                                    <p class="mb-1"><strong>Acc No:</strong> <span x-text="selectedExtendTransaction?.book_acc_no"></span></p>
+                                    <p class="mb-1"><strong>Author:</strong> <span x-text="selectedExtendTransaction?.book_author"></span></p>
+                                </div>
+                                <div class="column">
+                                    <p class="mb-1"><strong>Issued By:</strong> <span x-text="selectedExtendTransaction?.user_name"></span></p>
+                                    <p class="mb-1"><strong>Issue Date:</strong> <span x-text="formatDate(selectedExtendTransaction?.issue_date)"></span></p>
+                                    <p class="mb-1"><strong>Current Due:</strong> <span x-text="formatDate(selectedExtendTransaction?.due_date)"></span></p>
+                                    <p class="mb-1"><strong>Extensions:</strong> <span x-text="selectedExtendTransaction?.extension_count + '/2'"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Extension Not Available Warning -->
+                    <div x-show="selectedExtendTransaction && !selectedExtendTransaction.can_extend" class="notification is-danger is-light">
+                        <p class="has-text-weight-bold mb-2">🚫 Extension Not Available</p>
+                        <div class="content">
+                            <p><strong>This transaction cannot be extended further.</strong></p>
+                            <p>Reason: Maximum extensions limit (2/2) has been reached.</p>
+                            <div class="mt-2">
+                                <p class="mb-1"><strong>Current Due Date:</strong> <span x-text="formatDate(selectedExtendTransaction?.due_date)"></span></p>
+                                <p class="mb-1"><strong>Extensions Used:</strong> <span x-text="selectedExtendTransaction?.extension_count + '/2'"></span></p>
+                            </div>
+                            <hr>
+                            <p class="is-size-7 has-text-grey">
+                                <i class="fas fa-info-circle"></i> Please contact the borrower to return the book or issue a new transaction if needed.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Extension Preview -->
+                    <div x-show="selectedExtendTransaction && selectedExtendTransaction.can_extend" class="notification is-info is-light">
+                        <p class="has-text-weight-bold mb-2">⏰ Extension Preview</p>
+                        <div class="columns">
+                            <div class="column">
+                                <p class="is-size-6 mb-1">Current Due Date:</p>
+                                <p class="is-size-5 has-text-weight-bold" x-text="formatDate(selectedExtendTransaction?.due_date)"></p>
+                            </div>
+                            <div class="column has-text-centered" style="display: flex; align-items: center; justify-content: center;">
+                                <span class="icon is-large has-text-info">
+                                    <i class="fas fa-arrow-right fa-2x"></i>
+                                </span>
+                            </div>
+                            <div class="column">
+                                <p class="is-size-6 mb-1">New Due Date (+7 days):</p>
+                                <p class="is-size-5 has-text-weight-bold has-text-success" x-text="formatDate(selectedExtendTransaction?.new_due_date)"></p>
+                            </div>
+                        </div>
+                        <div class="mt-2" x-show="selectedExtendTransaction?.extension_count === 1">
+                            <article class="message is-warning">
+                                <div class="message-body">
+                                    ⚠️ <strong>Last Extension Available!</strong> This is the final extension allowed for this book.
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </form>
+            </section>
+            <footer class="modal-card-foot">
+                <button @click="extendBook" :disabled="!selectedExtendTransaction || !selectedExtendTransaction?.can_extend || isExtending" class="button is-warning" :class="{'is-loading': isExtending}">
+                    <span class="icon"><i class="fas fa-clock"></i></span>
+                    <span>Extend Due Date</span>
+                </button>
+                <button @click="closeExtendModal" class="button">Cancel</button>
+            </footer>
+        </div>
+    </div>
+</div>
+
+<script>
+    function circulationApp() {
+        return {
+            transactions: [],
+            filterStatus: '',
+            isAdmin: false,
+            showIssueModal: false,
+            showReturnModal: false,
+            showExtendModal: false,
+            issueData: { 
+                book_id: '', 
+                user_id: '', 
+                days: 14, 
+                notes: '',
+                borrower_name: '',
+                staff_no: '',
+                department: '',
+                sbu: '',
+                int_no: '',
+                mob_no: ''
+            },
+            returnData: { transaction_id: '', notes: '' },
+            extendData: { transaction_id: '' },
+            bookSearchQuery: '',
+            bookSearchResults: [],
+            bookSearchFocused: false,
+            selectedBook: null,
+            dueDatePreview: '',
+            isSubmitting: false,
+            searchTimeout: null,
+            transactionSearchQuery: '',
+            transactionSearchResults: [],
+            transactionSearchFocused: false,
+            selectedTransaction: null,
+            isReturning: false,
+            transactionSearchTimeout: null,
+            extendSearchQuery: '',
+            extendSearchResults: [],
+            extendSearchFocused: false,
+            selectedExtendTransaction: null,
+            isExtending: false,
+            extendSearchTimeout: null,
+            toasts: [],
+            toastIdCounter: 0,
+            userName: '',
+            overdueCheckInterval: null,
+
+            async init() {
+                const userRole = localStorage.getItem('user_role');
+                this.isAdmin = userRole === 'admin' || userRole === 'librarian';
+                this.userName = localStorage.getItem('full_name') || localStorage.getItem('username') || 'User';
+                await this.loadTransactions();
+                this.calculateDueDate();
+                
+                // Update overdue status on page load
+                await this.updateOverdueStatus();
+                
+                // Set up periodic check every 5 minutes (300000ms)
+                this.overdueCheckInterval = setInterval(() => {
+                    this.updateOverdueStatus();
+                }, 300000);
+            },
+
+            async updateOverdueStatus() {
+                try {
+                    const token = localStorage.getItem('access_token');
+                    const response = await fetch('/api/circulation/update-overdue', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.updated_count > 0) {
+                            // Reload transactions if any were updated
+                            await this.loadTransactions();
+                            console.log(`Updated ${data.updated_count} transaction(s) to overdue status`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error updating overdue status:', error);
+                }
+            },
+
+            showToast(message, type = 'info', duration = 4000) {
+                const id = ++this.toastIdCounter;
+                const toast = {
+                    id: id,
+                    message: message,
+                    type: type,
+                    visible: true
+                };
+                
+                this.toasts.push(toast);
+                
+                // Auto-remove after duration
+                setTimeout(() => {
+                    this.removeToast(id);
+                }, duration);
+            },
+
+            removeToast(id) {
+                const index = this.toasts.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    this.toasts[index].visible = false;
+                    // Remove from array after animation
+                    setTimeout(() => {
+                        this.toasts = this.toasts.filter(t => t.id !== id);
+                    }, 300);
+                }
+            },
+
+            async loadTransactions() {
+                const token = localStorage.getItem('access_token');
+                let url = '/api/transactions?limit=500';
+                if (this.filterStatus) url += `&status_filter=${this.filterStatus}`;
+
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    this.transactions = await response.json();
+                }
+            },
+
+            searchAvailableBooks() {
+                // Clear previous timeout
+                if (this.searchTimeout) {
+                    clearTimeout(this.searchTimeout);
+                }
+                
+                // If search query is too short, clear results
+                if (this.bookSearchQuery.length < 2) {
+                    this.bookSearchResults = [];
+                    return;
+                }
+                
+                // Set new timeout for debounced search
+                this.searchTimeout = setTimeout(async () => {
+                    try {
+                        const token = localStorage.getItem('access_token');
+                        console.log('Searching for:', this.bookSearchQuery);
+                        
+                        const response = await fetch(`/api/books/available?search=${encodeURIComponent(this.bookSearchQuery)}&limit=20`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        
+                        if (response.ok) {
+                            this.bookSearchResults = await response.json();
+                            console.log('Book search results:', this.bookSearchResults.length, 'books found');
+                        } else {
+                            console.error('Search failed:', response.status, response.statusText);
+                            const errorText = await response.text();
+                            console.error('Error details:', errorText);
+                            this.bookSearchResults = [];
+                        }
+                    } catch (error) {
+                        console.error('Search error:', error);
+                        this.bookSearchResults = [];
+                    }
+                }, 300);
+            },
+
+            selectBook(book) {
+                this.selectedBook = book;
+                this.issueData.book_id = book.id;
+                this.bookSearchQuery = `${book.acc_no} - ${book.title}`;
+                this.bookSearchFocused = false;
+                this.bookSearchResults = [];
+            },
+
+            calculateDueDate() {
+                const days = this.issueData.days || 14;
+                const dueDate = new Date();
+                dueDate.setDate(dueDate.getDate() + days);
+                this.dueDatePreview = dueDate.toLocaleDateString('en-IN', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+            },
+
+            openIssueModal() {
+                this.issueData = { 
+                    book_id: '', 
+                    user_id: '', 
+                    days: 14, 
+                    notes: '',
+                    borrower_name: '',
+                    staff_no: '',
+                    department: '',
+                    sbu: '',
+                    int_no: '',
+                    mob_no: ''
+                };
+                this.bookSearchQuery = '';
+                this.bookSearchResults = [];
+                this.selectedBook = null;
+                this.bookSearchFocused = false;
+                this.isSubmitting = false;
+                this.calculateDueDate();
+                this.showIssueModal = true;
+            },
+
+            closeIssueModal() {
+                this.showIssueModal = false;
+                this.bookSearchQuery = '';
+                this.bookSearchResults = [];
+                this.selectedBook = null;
+                this.bookSearchFocused = false;
+            },
+
+            searchActiveTransactions() {
+                // Clear previous timeout
+                if (this.transactionSearchTimeout) {
+                    clearTimeout(this.transactionSearchTimeout);
+                }
+                
+                // If search query is too short, clear results
+                if (this.transactionSearchQuery.length < 2) {
+                    this.transactionSearchResults = [];
+                    return;
+                }
+                
+                // Set new timeout for debounced search
+                this.transactionSearchTimeout = setTimeout(async () => {
+                    try {
+                        const token = localStorage.getItem('access_token');
+                        console.log('Searching transactions for:', this.transactionSearchQuery);
+                        
+                        const response = await fetch(`/api/transactions/active?search=${encodeURIComponent(this.transactionSearchQuery)}&limit=20`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        
+                        if (response.ok) {
+                            this.transactionSearchResults = await response.json();
+                            console.log('Transaction search results:', this.transactionSearchResults.length, 'transactions found');
+                        } else {
+                            console.error('Transaction search failed:', response.status, response.statusText);
+                            const errorText = await response.text();
+                            console.error('Error details:', errorText);
+                            this.transactionSearchResults = [];
+                        }
+                    } catch (error) {
+                        console.error('Transaction search error:', error);
+                        this.transactionSearchResults = [];
+                    }
+                }, 300);
+            },
+
+            selectTransaction(txn) {
+                this.selectedTransaction = txn;
+                this.returnData.transaction_id = txn.id;
+                this.transactionSearchQuery = `${txn.book_acc_no} - ${txn.book_title}`;
+                this.transactionSearchFocused = false;
+                this.transactionSearchResults = [];
+            },
+
+            openReturnModal() {
+                this.returnData = { transaction_id: '', notes: '' };
+                this.transactionSearchQuery = '';
+                this.transactionSearchResults = [];
+                this.selectedTransaction = null;
+                this.transactionSearchFocused = false;
+                this.isReturning = false;
+                this.showReturnModal = true;
+            },
+
+            closeReturnModal() {
+                this.showReturnModal = false;
+                this.transactionSearchQuery = '';
+                this.transactionSearchResults = [];
+                this.selectedTransaction = null;
+                this.transactionSearchFocused = false;
+            },
+
+            searchExtendableTransactions() {
+                // Clear previous timeout
+                if (this.extendSearchTimeout) {
+                    clearTimeout(this.extendSearchTimeout);
+                }
+                
+                // If search query is too short, clear results
+                if (this.extendSearchQuery.length < 2) {
+                    this.extendSearchResults = [];
+                    return;
+                }
+                
+                // Set new timeout for debounced search
+                this.extendSearchTimeout = setTimeout(async () => {
+                    try {
+                        const token = localStorage.getItem('access_token');
+                        console.log('Searching extendable transactions for:', this.extendSearchQuery);
+                        
+                        const response = await fetch(`/api/transactions/extendable?search=${encodeURIComponent(this.extendSearchQuery)}&limit=20`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        
+                        if (response.ok) {
+                            this.extendSearchResults = await response.json();
+                            console.log('Extendable transaction results:', this.extendSearchResults.length, 'transactions found');
+                        } else {
+                            console.error('Extend search failed:', response.status, response.statusText);
+                            const errorText = await response.text();
+                            console.error('Error details:', errorText);
+                            this.extendSearchResults = [];
+                        }
+                    } catch (error) {
+                        console.error('Extend search error:', error);
+                        this.extendSearchResults = [];
+                    }
+                }, 300);
+            },
+
+            selectExtendTransaction(txn) {
+                this.selectedExtendTransaction = txn;
+                this.extendData.transaction_id = txn.id;
+                this.extendSearchQuery = `${txn.book_acc_no} - ${txn.book_title}`;
+                this.extendSearchFocused = false;
+                this.extendSearchResults = [];
+            },
+
+            openExtendModal() {
+                this.extendData = { transaction_id: '' };
+                this.extendSearchQuery = '';
+                this.extendSearchResults = [];
+                this.selectedExtendTransaction = null;
+                this.extendSearchFocused = false;
+                this.isExtending = false;
+                this.showExtendModal = true;
+            },
+
+            closeExtendModal() {
+                this.showExtendModal = false;
+                this.extendSearchQuery = '';
+                this.extendSearchResults = [];
+                this.selectedExtendTransaction = null;
+                this.extendSearchFocused = false;
+            },
+
+            async issueBook() {
+                if (!this.selectedBook) {
+                    this.showToast('Please select a book first', 'warning');
+                    return;
+                }
+
+                if (this.selectedBook.is_issued) {
+                    this.showToast('This book is currently issued and not available', 'error');
+                    return;
+                }
+
+                this.isSubmitting = true;
+                const token = localStorage.getItem('access_token');
+                
+                // Store book and borrower info for success message
+                const bookTitle = this.selectedBook.title;
+                const borrowerName = this.issueData.borrower_name;
+                const dueDate = this.dueDatePreview;
+                
+                // Create notes with borrower details
+                const borrowerDetails = `Borrower Details:
+Name: ${this.issueData.borrower_name}
+Staff No: ${this.issueData.staff_no}
+Department: ${this.issueData.department}
+SBU: ${this.issueData.sbu}
+${this.issueData.int_no ? 'Int No: ' + this.issueData.int_no : ''}
+Mobile No: ${this.issueData.mob_no}
+${this.issueData.notes ? '\nAdditional Notes:\n' + this.issueData.notes : ''}`;
+
+                const formData = new URLSearchParams();
+                formData.append('book_id', this.issueData.book_id);
+                formData.append('user_id', 1); // Using a default user ID since users are not linked
+                formData.append('days', this.issueData.days);
+                formData.append('notes', borrowerDetails);
+
+                const response = await fetch('/api/circulation/issue', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                this.isSubmitting = false;
+
+                if (response.ok) {
+                    this.closeIssueModal();
+                    await this.loadTransactions();
+                    this.showToast(`Book issued successfully! Due date: ${dueDate}`, 'success', 5000);
+                } else {
+                    const error = await response.json();
+                    this.showToast(error.detail, 'error');
+                }
+            },
+
+            async returnBook() {
+                if (!this.selectedTransaction) {
+                    this.showToast('Please select a transaction first', 'warning');
+                    return;
+                }
+
+                this.isReturning = true;
+                const token = localStorage.getItem('access_token');
+                
+                // Store transaction info for success message
+                const bookTitle = this.selectedTransaction.book_title;
+                const userName = this.selectedTransaction.user_name;
+                
+                const formData = new URLSearchParams();
+                formData.append('transaction_id', this.returnData.transaction_id);
+                if (this.returnData.notes) {
+                    formData.append('notes', this.returnData.notes);
+                }
+
+                const response = await fetch('/api/circulation/return', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                this.isReturning = false;
+
+                if (response.ok) {
+                    this.closeReturnModal();
+                    await this.loadTransactions();
+                    this.showToast(`Book returned successfully! "${bookTitle}"`, 'success');
+                } else {
+                    const error = await response.json();
+                    this.showToast(error.detail, 'error');
+                }
+            },
+
+            async extendBook() {
+                if (!this.selectedExtendTransaction) {
+                    this.showToast('Please select a transaction first', 'warning');
+                    return;
+                }
+
+                if (!this.selectedExtendTransaction.can_extend) {
+                    this.showToast('Extension not available - Maximum limit (2/2) reached', 'error', 5000);
+                    return;
+                }
+
+                this.isExtending = true;
+                const token = localStorage.getItem('access_token');
+                
+                // Store transaction info for success message
+                const bookTitle = this.selectedExtendTransaction.book_title;
+                const newDueDate = this.formatDate(this.selectedExtendTransaction.new_due_date);
+                const extensionCount = this.selectedExtendTransaction.extension_count + 1;
+                
+                const formData = new URLSearchParams();
+                formData.append('transaction_id', this.extendData.transaction_id);
+
+                const response = await fetch('/api/circulation/extend', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                this.isExtending = false;
+
+                if (response.ok) {
+                    this.closeExtendModal();
+                    await this.loadTransactions();
+                    this.showToast(`Due date extended to ${newDueDate} (${extensionCount}/2 extensions used)`, 'success', 5000);
+                } else {
+                    const error = await response.json();
+                    this.showToast(error.detail, 'error');
+                }
+            },
+
+            async quickExtend(transactionId) {
+                if (!confirm('Are you sure you want to extend the due date by 7 days?')) return;
+                
+                this.isExtending = true;
+                const token = localStorage.getItem('access_token');
+                const formData = new URLSearchParams();
+                formData.append('transaction_id', transactionId);
+
+                const response = await fetch('/api/circulation/extend', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                this.isExtending = false;
+
+                if (response.ok) {
+                    await this.loadTransactions();
+                    const data = await response.json();
+                    this.showToast(data.message, 'success');
+                } else {
+                    const error = await response.json();
+                    this.showToast(error.detail, 'error');
+                }
+            },
+
+            async quickReturn(transactionId) {
+                if (!confirm('Are you sure you want to return this book?')) return;
+                
+                this.isReturning = true;
+                const token = localStorage.getItem('access_token');
+                const formData = new URLSearchParams();
+                formData.append('transaction_id', transactionId);
+
+                const response = await fetch('/api/circulation/return', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                this.isReturning = false;
+
+                if (response.ok) {
+                    await this.loadTransactions();
+                    this.showToast('Book returned successfully!', 'success');
+                } else {
+                    const error = await response.json();
+                    this.showToast(error.detail, 'error');
+                }
+            },
+
+            formatDate(dateString) {
+                return new Date(dateString).toLocaleDateString('en-IN');
+            },
+
+            logout() {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_role');
+                localStorage.removeItem('user_id');
+                localStorage.removeItem('username');
+                localStorage.removeItem('full_name');
+                window.location.href = '/';
+            },
+
+            openChangePasswordModal() {
+                window.openChangePasswordModal();
+            }
+        }
+    }
+</script>
+
+<style>
+    [x-cloak] { display: none !important; }
+    
+    /* Toast Notification Styles */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 400px;
+    }
+    
+    .toast {
+        padding: 1rem 1.5rem;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        animation: slideIn 0.3s ease-out;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .toast::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+    }
+    
+    .toast-success {
+        background-color: #48c78e;
+        color: white;
+    }
+    
+    .toast-success::before {
+        background-color: #23a464;
+    }
+    
+    .toast-error {
+        background-color: #f14668;
+        color: white;
+    }
+    
+    .toast-error::before {
+        background-color: #cc0f35;
+    }
+    
+    .toast-warning {
+        background-color: #ffe08a;
+        color: #947600;
+    }
+    
+    .toast-warning::before {
+        background-color: #ffdd57;
+    }
+    
+    .toast-info {
+        background-color: #3e8ed0;
+        color: white;
+    }
+    
+    .toast-info::before {
+        background-color: #296fa8;
+    }
+    
+    .toast-icon {
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+    
+    .toast-message {
+        flex: 1;
+        font-weight: 500;
+    }
+    
+    .toast-close {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        padding: 0;
+        font-size: 1.25rem;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+    
+    .toast-close:hover {
+        opacity: 1;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+    }
+    
+    .toast-exit {
+        animation: slideOut 0.3s ease-in;
+    }
+</style>
+
+<!-- Include Change Password Modal -->
+{% include 'change_password_modal.html' %}
+
+{% endblock %}

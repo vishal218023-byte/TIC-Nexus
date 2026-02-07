@@ -1,0 +1,73 @@
+{# Reusable Sidebar Component 
+    
+    Usage: 
+    {% raw %}{% set active_page = 'dashboard' %}{% endraw %}
+    {% raw %}{% include 'sidebar.html' %}{% endraw %}
+    
+    Parameters:
+    - active_page: The current page name to highlight in navigation
+      Options: 'dashboard', 'inventory', 'circulation', 'digital-library', 'users'
+#}
+<aside class="column is-narrow sidebar-nav">
+    <div class="p-5">
+        <a href="/" style="text-decoration: none;">
+            <h1 class="title is-4 has-text-white">TIC Nexus</h1>
+        </a>
+        <div class="mt-3 has-text-white" style="border-top: 1px solid rgba(255,255,255,0.2); padding-top: 1rem;">
+            <div class="is-flex is-align-items-center">
+                <span class="icon has-text-white mr-2">
+                    <i class="fas fa-user-circle"></i>
+                </span>
+                <div>
+                    <p class="is-size-7 has-text-grey-light mb-1">Logged in as</p>
+                    <p class="has-text-weight-semibold" id="sidebar-username">User</p>
+                </div>
+            </div>
+        </div>
+        <script>
+            // Update username immediately when sidebar loads
+            (function() {
+                const fullName = localStorage.getItem('full_name');
+                const username = localStorage.getItem('username');
+                const displayName = fullName || username || 'User';
+                const usernameElement = document.getElementById('sidebar-username');
+                if (usernameElement) {
+                    usernameElement.textContent = displayName;
+                }
+            })();
+        </script>
+    </div>
+    
+    <nav class="menu">
+        <ul class="menu-list">
+            <li><a href="/dashboard" {% if active_page == 'dashboard' %}class="is-active"{% endif %}>
+                <span class="icon"><i class="fas fa-chart-line"></i></span>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="/inventory" {% if active_page == 'inventory' %}class="is-active"{% endif %}>
+                <span class="icon"><i class="fas fa-book"></i></span>
+                <span>Inventory</span>
+            </a></li>
+            <li><a href="/circulation" {% if active_page == 'circulation' %}class="is-active"{% endif %}>
+                <span class="icon"><i class="fas fa-sync-alt"></i></span>
+                <span>Circulation</span>
+            </a></li>
+            <li><a href="/digital-library" {% if active_page == 'digital-library' %}class="is-active"{% endif %}>
+                <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                <span>Digital Library</span>
+            </a></li>
+            <li><a href="/users" x-show="isAdmin" {% if active_page == 'users' %}class="is-active"{% endif %}>
+                <span class="icon"><i class="fas fa-users"></i></span>
+                <span>User Management</span>
+            </a></li>
+            <li style="margin-top: 2rem;"><a href="javascript:void(0)" @click="openChangePasswordModal()">
+                <span class="icon"><i class="fas fa-key"></i></span>
+                <span>Change Password</span>
+            </a></li>
+            <li><a href="javascript:void(0)" @click="logout">
+                <span class="icon"><i class="fas fa-sign-out-alt"></i></span>
+                <span>Logout</span>
+            </a></li>
+        </ul>
+    </nav>
+</aside>

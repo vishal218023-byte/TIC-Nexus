@@ -1,0 +1,614 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - TIC Nexus{% endblock %}
+
+{% block extra_css %}
+<script src="/static/js/auth-check.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="columns is-gapless" style="min-height: 100vh;" x-data="usersApp()" x-cloak>
+    <!-- Sidebar -->
+    {% set active_page = 'users' %}
+    {% include 'sidebar.html' %}
+
+    <!-- Main Content -->
+    <main class="column" style="background-color: #f8fafc;" x-show="isAdmin">
+        <div class="section">
+            <div class="container is-fluid">
+                <div class="level">
+                    <div class="level-left">
+                        <div class="level-item">
+                            <h2 class="title is-3 has-text-grey-dark">User Management</h2>
+                        </div>
+                    </div>
+                    <div class="level-right">
+                        <div class="level-item">
+                            <button @click="openAddModal" x-show="isAdmin" class="button is-success">
+                                <span class="icon"><i class="fas fa-user-plus"></i></span>
+                                <span>Add New User</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Table -->
+                <div class="box" style="overflow-x: auto;">
+                    <table class="table is-fullwidth is-hoverable is-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Full Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="user in users" :key="user.id">
+                                <tr>
+                                    <td><strong x-text="user.id"></strong></td>
+                                    <td x-text="user.username"></td>
+                                    <td x-text="user.full_name"></td>
+                                    <td x-text="user.email"></td>
+                                    <td>
+                                        <span :class="user.role === 'admin' ? 'tag is-danger' : (user.role === 'librarian' ? 'tag is-warning' : 'tag is-info')" x-text="user.role"></span>
+                                    </td>
+                                    <td>
+                                        <span :class="user.is_active ? 'tag is-success' : 'tag is-warning'" x-text="user.is_active ? 'Active' : 'Inactive'"></span>
+                                    </td>
+                                    <td x-text="formatDate(user.created_at)"></td>
+                                    <td>
+                                        <div class="buttons are-small">
+                                            <button @click="editUser(user)" x-show="isAdmin" class="button is-info is-light" title="Edit User">
+                                                <span class="icon is-small"><i class="fas fa-edit"></i></span>
+                                            </button>
+                                            <button @click="generateResetToken(user)" x-show="isAdmin" class="button is-warning is-light" title="Generate Password Reset Token">
+                                                <span class="icon is-small"><i class="fas fa-key"></i></span>
+                                            </button>
+                                            <button @click="deleteUser(user.id)" x-show="isAdmin && user.id !== currentUserId" class="button is-danger is-light" title="Delete User">
+                                                <span class="icon is-small"><i class="fas fa-trash"></i></span>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Modal -->
+    <div x-show="showModal" class="modal" :class="{'is-active': showModal}" x-cloak>
+        <div class="modal-background" @click="showModal = false"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title" x-text="editMode ? 'Edit User' : 'Add New User'"></p>
+                <button class="delete" @click="showModal = false" aria-label="close"></button>
+            </header>
+            <section class="modal-card-body">
+                <form @submit.prevent="saveUser">
+                    <div class="columns is-multiline">
+                        <div class="column is-half" x-show="!editMode">
+                            <div class="field">
+                                <label class="label">Username *</label>
+                                <div class="control has-icons-left">
+                                    <input x-model="currentUser.username" :disabled="editMode" required class="input" type="text">
+                                    <span class="icon is-small is-left">
+                                        <i class="fas fa-user"></i>
+                                    </span>
+                                </div>
+                                <p class="help">Cannot be changed after creation</p>
+                            </div>
+                        </div>
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">Email *</label>
+                                <div class="control has-icons-left">
+                                    <input x-model="currentUser.email" required class="input" type="email">
+                                    <span class="icon is-small is-left">
+                                        <i class="fas fa-envelope"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-full">
+                            <div class="field">
+                                <label class="label">Full Name *</label>
+                                <div class="control has-icons-left">
+                                    <input x-model="currentUser.full_name" required class="input" type="text">
+                                    <span class="icon is-small is-left">
+                                        <i class="fas fa-id-card"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">Password <span x-show="editMode">(leave empty to keep current)</span><span x-show="!editMode">*</span></label>
+                                <div class="control has-icons-left">
+                                    <input x-model="currentUser.password" :required="!editMode" class="input" type="password" :placeholder="editMode ? 'Leave empty to keep current' : ''">
+                                    <span class="icon is-small is-left">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-half">
+                            <div class="field">
+                                <label class="label">Role *</label>
+                                <div class="control">
+                                    <div class="select is-fullwidth">
+                                        <select x-model="currentUser.role" required>
+                                            <option value="viewer">Viewer</option>
+                                            <option value="librarian">Librarian</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-full" x-show="editMode">
+                            <div class="field">
+                                <label class="checkbox">
+                                    <input x-model="currentUser.is_active" type="checkbox">
+                                    Active
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </section>
+            <footer class="modal-card-foot">
+                <button @click="saveUser" class="button is-success">Save</button>
+                <button @click="showModal = false" class="button">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Password Reset Token Modal -->
+    <div x-show="showResetTokenModal" class="modal" :class="{'is-active': showResetTokenModal}" x-cloak>
+        <div class="modal-background" @click="closeResetTokenModal"></div>
+        <div class="modal-card">
+            <header class="modal-card-head has-background-warning">
+                <p class="modal-card-title has-text-dark">
+                    <i class="fas fa-key mr-2"></i>Password Reset Token
+                </p>
+                <button class="delete" @click="closeResetTokenModal" aria-label="close"></button>
+            </header>
+            <section class="modal-card-body">
+                <!-- Loading State -->
+                <div x-show="generatingToken" class="has-text-centered py-5">
+                    <i class="fas fa-spinner fa-spin fa-3x has-text-grey-light"></i>
+                    <p class="mt-3 has-text-grey">Generating reset token...</p>
+                </div>
+
+                <!-- Success State -->
+                <div x-show="!generatingToken && resetToken">
+                    <div class="notification is-warning is-light">
+                        <p class="has-text-weight-semibold mb-2">
+                            <i class="fas fa-user mr-2"></i>User: <span x-text="resetTokenUser?.full_name"></span>
+                        </p>
+                        <p class="has-text-grey-dark text-sm">
+                            Username: <span x-text="resetTokenUser?.username"></span>
+                        </p>
+                    </div>
+
+                    <div class="box has-background-dark has-text-centered py-5">
+                        <p class="has-text-grey-light mb-2 text-sm">Reset Token:</p>
+                        <p class="title is-2 has-text-warning-light mb-3" 
+                           x-text="resetToken" 
+                           style="font-family: 'Courier New', monospace; letter-spacing: 0.2em;">
+                        </p>
+                        <button @click="copyToken" class="button is-warning">
+                            <span class="icon">
+                                <i class="fas" :class="tokenCopied ? 'fa-check' : 'fa-copy'"></i>
+                            </span>
+                            <span x-text="tokenCopied ? 'Copied!' : 'Copy Token'"></span>
+                        </button>
+                    </div>
+
+                    <div class="notification is-info is-light">
+                        <p class="has-text-weight-semibold mb-2">
+                            <i class="fas fa-clock mr-2"></i>Token Details:
+                        </p>
+                        <ul class="text-sm">
+                            <li><strong>Expires:</strong> <span x-text="formatDateTime(resetTokenExpiry)"></span></li>
+                            <li><strong>Valid for:</strong> <span x-text="resetTokenMinutes"></span> minutes</li>
+                        </ul>
+                    </div>
+
+                    <div class="message is-warning">
+                        <div class="message-body">
+                            <p class="has-text-weight-semibold mb-2">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>Important Instructions:
+                            </p>
+                            <ol class="text-sm ml-4">
+                                <li>Share this token with the user via phone or in person (do not email)</li>
+                                <li>The token expires in 1 hour</li>
+                                <li>It can only be used once</li>
+                                <li>Direct the user to: <strong>/forgot-password</strong> or <strong>/reset-password</strong></li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Print Button -->
+                    <div class="has-text-centered mt-4">
+                        <button @click="printToken" class="button is-light">
+                            <span class="icon">
+                                <i class="fas fa-print"></i>
+                            </span>
+                            <span>Print Token</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Error State -->
+                <div x-show="resetTokenError" class="notification is-danger">
+                    <p x-text="resetTokenError"></p>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button @click="closeResetTokenModal" class="button">Close</button>
+            </footer>
+        </div>
+    </div>
+</div>
+
+<script>
+    function usersApp() {
+        return {
+            users: [],
+            showModal: false,
+            editMode: false,
+            isAdmin: false,
+            userName: '',
+            currentUserId: null,
+            currentUser: {},
+
+            async init() {
+                this.isAdmin = localStorage.getItem('user_role') === 'admin';
+                this.currentUserId = parseInt(localStorage.getItem('user_id'));
+                this.userName = localStorage.getItem('full_name') || localStorage.getItem('username') || 'User';
+                
+                if (!this.isAdmin) {
+                    // Show toast notification for access denied
+                    if (window.toast) {
+                        window.toast.error('Access Denied! Admin privileges required to access User Management.', 3000);
+                    }
+                    // Redirect to dashboard after showing toast
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 2500);
+                    return;
+                }
+                
+                await this.loadUsers();
+            },
+
+            async loadUsers() {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch('/api/users', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    this.users = await response.json();
+                }
+            },
+
+            openAddModal() {
+                this.editMode = false;
+                this.currentUser = { 
+                    username: '', 
+                    email: '', 
+                    full_name: '', 
+                    password: '', 
+                    role: 'viewer',
+                    is_active: true
+                };
+                this.showModal = true;
+            },
+
+            editUser(user) {
+                this.editMode = true;
+                this.currentUser = { 
+                    ...user, 
+                    password: '' // Don't prefill password
+                };
+                this.showModal = true;
+            },
+
+            async saveUser() {
+                const token = localStorage.getItem('access_token');
+                
+                if (this.editMode) {
+                    // Update user
+                    const formData = new FormData();
+                    if (this.currentUser.email) formData.append('email', this.currentUser.email);
+                    if (this.currentUser.full_name) formData.append('full_name', this.currentUser.full_name);
+                    if (this.currentUser.role) formData.append('role', this.currentUser.role);
+                    formData.append('is_active', this.currentUser.is_active);
+                    if (this.currentUser.password) formData.append('password', this.currentUser.password);
+
+                    const response = await fetch(`/api/users/${this.currentUser.id}`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        this.showModal = false;
+                        await this.loadUsers();
+                        alert('User updated successfully');
+                    } else {
+                        const error = await response.json();
+                        alert(error.detail);
+                    }
+                } else {
+                    // Create user
+                    const formData = new FormData();
+                    formData.append('username', this.currentUser.username);
+                    formData.append('email', this.currentUser.email);
+                    formData.append('full_name', this.currentUser.full_name);
+                    formData.append('password', this.currentUser.password);
+                    formData.append('role', this.currentUser.role);
+
+                    const response = await fetch('/api/users', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        this.showModal = false;
+                        await this.loadUsers();
+                        alert('User created successfully');
+                    } else {
+                        const error = await response.json();
+                        alert(error.detail);
+                    }
+                }
+            },
+
+            async deleteUser(userId) {
+                if (!confirm('Are you sure you want to delete this user?')) return;
+
+                const token = localStorage.getItem('access_token');
+                const response = await fetch(`/api/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    await this.loadUsers();
+                    alert('User deleted successfully');
+                } else {
+                    const error = await response.json();
+                    alert(error.detail);
+                }
+            },
+
+            formatDate(dateString) {
+                return new Date(dateString).toLocaleDateString('en-IN');
+            },
+
+            formatDateTime(dateString) {
+                const date = new Date(dateString);
+                return date.toLocaleString('en-IN', { 
+                    dateStyle: 'medium', 
+                    timeStyle: 'short' 
+                });
+            },
+
+            // Password Reset Token Functions
+            showResetTokenModal: false,
+            generatingToken: false,
+            resetToken: null,
+            resetTokenExpiry: null,
+            resetTokenUser: null,
+            resetTokenError: null,
+            tokenCopied: false,
+            resetTokenMinutes: 0,
+
+            async generateResetToken(user) {
+                if (!user.is_active) {
+                    alert('Cannot generate reset token for inactive user');
+                    return;
+                }
+
+                this.resetTokenUser = user;
+                this.showResetTokenModal = true;
+                this.generatingToken = true;
+                this.resetToken = null;
+                this.resetTokenError = null;
+                this.tokenCopied = false;
+
+                try {
+                    const token = localStorage.getItem('access_token');
+                    const response = await fetch('/api/auth/admin/generate-reset-token', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ user_id: user.id })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.resetToken = data.token;
+                        this.resetTokenExpiry = data.expires_at;
+                        
+                        // Calculate minutes remaining
+                        const expiryTime = new Date(data.expires_at);
+                        const now = new Date();
+                        this.resetTokenMinutes = Math.round((expiryTime - now) / 60000);
+                    } else {
+                        const error = await response.json();
+                        this.resetTokenError = error.detail || 'Failed to generate reset token';
+                    }
+                } catch (error) {
+                    this.resetTokenError = 'An error occurred while generating the token';
+                    console.error('Token generation error:', error);
+                } finally {
+                    this.generatingToken = false;
+                }
+            },
+
+            closeResetTokenModal() {
+                this.showResetTokenModal = false;
+                this.resetToken = null;
+                this.resetTokenUser = null;
+                this.resetTokenError = null;
+                this.tokenCopied = false;
+            },
+
+            async copyToken() {
+                if (!this.resetToken) return;
+
+                try {
+                    await navigator.clipboard.writeText(this.resetToken);
+                    this.tokenCopied = true;
+                    setTimeout(() => {
+                        this.tokenCopied = false;
+                    }, 2000);
+                } catch (error) {
+                    // Fallback for older browsers
+                    const textarea = document.createElement('textarea');
+                    textarea.value = this.resetToken;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    this.tokenCopied = true;
+                    setTimeout(() => {
+                        this.tokenCopied = false;
+                    }, 2000);
+                }
+            },
+
+            printToken() {
+                if (!this.resetToken || !this.resetTokenUser) return;
+
+                const printWindow = window.open('', '_blank');
+                const expiryTime = new Date(this.resetTokenExpiry).toLocaleString('en-IN');
+                
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Password Reset Token - TIC Nexus</title>
+                        <style>
+                            body {
+                                font-family: Arial, sans-serif;
+                                padding: 40px;
+                                max-width: 600px;
+                                margin: 0 auto;
+                            }
+                            .header {
+                                text-align: center;
+                                border-bottom: 3px solid #052c52;
+                                padding-bottom: 20px;
+                                margin-bottom: 30px;
+                            }
+                            .token-box {
+                                background: #f8fafc;
+                                border: 2px solid #052c52;
+                                padding: 30px;
+                                text-align: center;
+                                margin: 30px 0;
+                            }
+                            .token {
+                                font-size: 36px;
+                                font-family: 'Courier New', monospace;
+                                letter-spacing: 0.2em;
+                                font-weight: bold;
+                                color: #052c52;
+                                margin: 20px 0;
+                            }
+                            .info {
+                                margin: 20px 0;
+                                line-height: 1.8;
+                            }
+                            .warning {
+                                background: #fff3cd;
+                                border: 1px solid #ffc107;
+                                padding: 15px;
+                                margin: 20px 0;
+                            }
+                            @media print {
+                                .no-print { display: none; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h1>TIC Nexus - Password Reset Token</h1>
+                            <p>Bharat Electronics Limited</p>
+                        </div>
+                        
+                        <div class="info">
+                            <p><strong>User:</strong> ${this.resetTokenUser.full_name}</p>
+                            <p><strong>Username:</strong> ${this.resetTokenUser.username}</p>
+                            <p><strong>Generated:</strong> ${new Date().toLocaleString('en-IN')}</p>
+                            <p><strong>Expires:</strong> ${expiryTime}</p>
+                        </div>
+                        
+                        <div class="token-box">
+                            <p style="margin: 0; font-size: 14px; color: #666;">Reset Token:</p>
+                            <div class="token">${this.resetToken}</div>
+                        </div>
+                        
+                        <div class="warning">
+                            <h3>Instructions:</h3>
+                            <ol>
+                                <li>Go to <strong>http://localhost:8000/reset-password</strong></li>
+                                <li>Enter this token exactly as shown above</li>
+                                <li>Create a new password (minimum 8 characters)</li>
+                                <li>This token expires in 1 hour and can only be used once</li>
+                            </ol>
+                        </div>
+                        
+                        <p style="text-align: center; color: #666; font-size: 12px; margin-top: 40px;">
+                            This is a secure document. Do not share with unauthorized persons.
+                        </p>
+                    </body>
+                    </html>
+                `);
+                
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => {
+                    printWindow.print();
+                }, 500);
+            },
+
+            logout() {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_role');
+                localStorage.removeItem('user_id');
+                localStorage.removeItem('username');
+                localStorage.removeItem('full_name');
+                window.location.href = '/';
+            },
+
+            openChangePasswordModal() {
+                window.openChangePasswordModal();
+            }
+        }
+    }
+</script>
+
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+
+<!-- Include Change Password Modal -->
+{% include 'change_password_modal.html' %}
+
+{% endblock %}
