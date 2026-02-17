@@ -157,3 +157,51 @@ class PasswordHistory(Base):
     # Relationships
     user = relationship("User", foreign_keys=[user_id], backref="password_history")
     changed_by_user = relationship("User", foreign_keys=[changed_by])
+
+
+class Vendor(Base):
+    """Vendor model for tracking magazine suppliers."""
+    __tablename__ = "vendors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    contact_details = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    issues = relationship("MagazineIssue", back_populates="vendor")
+
+
+class Magazine(Base):
+    """Magazine master model for tracking titles and languages."""
+    __tablename__ = "magazines"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False, index=True)
+    language = Column(String(50), default="English")
+    frequency = Column(String(50), nullable=True)  # Monthly, Weekly, etc.
+    category = Column(String(100), nullable=True)  # Technical, General, etc.
+    cover_image = Column(String(255), nullable=True)  # Path to cover image
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    issues = relationship("MagazineIssue", back_populates="magazine", cascade="all, delete-orphan")
+
+
+class MagazineIssue(Base):
+    """Magazine issue model for tracking received copies."""
+    __tablename__ = "magazine_issues"
+
+    id = Column(Integer, primary_key=True, index=True)
+    magazine_id = Column(Integer, ForeignKey("magazines.id"), nullable=False)
+    issue_description = Column(String(100), nullable=False)  # e.g., "January 2024" or "Vol 45, Issue 2"
+    received_date = Column(DateTime, default=datetime.utcnow)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    magazine = relationship("Magazine", back_populates="issues")
+    vendor = relationship("Vendor", back_populates="issues")

@@ -17,10 +17,11 @@ The project follows a modular FastAPI structure:
 
 - `app/`: Core application logic
     - `main.py`: Entry point, app initialization, and web routes.
-    - `models.py`: SQLAlchemy models (Users, Books, Transactions, DigitalBooks).
+    - `models.py`: SQLAlchemy models (Users, Books, Transactions, DigitalBooks, Magazines, Vendors).
     - `schemas.py`: Pydantic schemas for data validation and API response models.
     - `routes.py`: API endpoints for books and circulation.
     - `digital_library_routes.py`: API endpoints for digital resource management.
+    - `magazine_routes.py`: API endpoints for magazine management.
     - `auth.py`: JWT authentication, role-based access control (RBAC), and password hashing.
     - `circulation.py`: Business logic for library operations.
     - `database.py`: Session management and engine configuration.

@@ -1,0 +1,142 @@
+<!-- Reusable Public Navbar Component -->
+<nav class="navbar is-white is-fixed-top has-shadow" role="navigation" aria-label="main navigation" x-data="navbarApp()">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item" href="/">
+                <div class="has-gradient-navy is-flex is-align-items-center is-justify-content-center" style="width: 48px; height: 48px; border-radius: 8px; margin-right: 12px;">
+                    <span class="icon is-large has-text-white">
+                        <i class="fas fa-book fa-lg"></i>
+                    </span>
+                </div>
+                <div>
+                    <p class="navbar-brand-text mb-0">TIC Nexus</p>
+                    <p class="navbar-brand-subtext">Bharat Electronics Limited</p>
+                </div>
+            </a>
+
+            <a role="button" class="navbar-burger" :class="{ 'is-active': mobileMenuActive }" @click="mobileMenuActive = !mobileMenuActive" aria-label="menu" aria-expanded="false">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </a>
+        </div>
+
+        <div class="navbar-menu" :class="{ 'is-active': mobileMenuActive }">
+            <div class="navbar-end">
+                <a class="navbar-item has-text-weight-semibold" href="/">
+                    <span class="icon">
+                        <i class="fas fa-home"></i>
+                    </span>
+                    <span>Home</span>
+                </a>
+                <a class="navbar-item has-text-weight-semibold" href="/public/digital-library">
+                    <span class="icon">
+                        <i class="fas fa-book-open"></i>
+                    </span>
+                    <span>Digital Library</span>
+                </a>
+                <a class="navbar-item has-text-weight-semibold" href="/public/magazines">
+                    <span class="icon">
+                        <i class="fas fa-newspaper"></i>
+                    </span>
+                    <span>Magazines</span>
+                </a>
+                
+                <!-- Show when NOT logged in -->
+                <div class="navbar-item" x-show="!isLoggedIn">
+                    <div class="buttons">
+                        <a href="/login" class="button has-gradient-emerald has-text-weight-bold">
+                            <span class="icon">
+                                <i class="fas fa-sign-in-alt"></i>
+                            </span>
+                            <span>Login</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Show when logged in -->
+                <div x-show="isLoggedIn" class="navbar-item has-dropdown is-hoverable">
+                    <a class="navbar-link">
+                        <span class="icon has-text-success">
+                            <i class="fas fa-user-circle"></i>
+                        </span>
+                        <span x-text="username" class="has-text-weight-semibold"></span>
+                    </a>
+                    <div class="navbar-dropdown is-right">
+                        <a class="navbar-item" href="/dashboard">
+                            <span class="icon has-text-info">
+                                <i class="fas fa-tachometer-alt"></i>
+                            </span>
+                            <span>Dashboard</span>
+                        </a>
+                        <a class="navbar-item" href="/circulation">
+                            <span class="icon has-text-primary">
+                                <i class="fas fa-exchange-alt"></i>
+                            </span>
+                            <span>Circulation</span>
+                        </a>
+                        <hr class="navbar-divider">
+                        <a class="navbar-item" @click.prevent="logout">
+                            <span class="icon has-text-danger">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </span>
+                            <span>Logout</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<script>
+    function navbarApp() {
+        return {
+            mobileMenuActive: false,
+            isLoggedIn: false,
+            username: '',
+            userRole: '',
+            dashboardUrl: '/dashboard',
+
+            init() {
+                // Check if user is logged in
+                const token = localStorage.getItem('access_token');
+                const role = localStorage.getItem('user_role');
+                
+                if (token) {
+                    this.isLoggedIn = true;
+                    this.userRole = role || '';
+                    this.getUserInfo();
+                }
+            },
+
+            async getUserInfo() {
+                const token = localStorage.getItem('access_token');
+                try {
+                    const response = await fetch('/api/user/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (response.ok) {
+                        const user = await response.json();
+                        this.username = user.username;
+                    } else {
+                        // Token invalid, clear storage
+                        this.logout();
+                    }
+                } catch (error) {
+                    console.error('Error fetching user info:', error);
+                }
+            },
+
+            logout() {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_role');
+                localStorage.removeItem('user_id');
+                this.isLoggedIn = false;
+                this.username = '';
+                window.location.href = '/';
+            }
+        }
+    }
+</script>

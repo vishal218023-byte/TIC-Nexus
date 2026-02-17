@@ -22,6 +22,7 @@ async def list_books(
     search: Optional[str] = Query(None),
     subject: Optional[str] = Query(None),
     is_issued: Optional[bool] = Query(None),
+    language: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -44,6 +45,9 @@ async def list_books(
     if subject:
         query = query.filter(Book.subject == subject)
     
+    if language:
+        query = query.filter(Book.language == language)
+    
     if is_issued is not None:
         query = query.filter(Book.is_issued == is_issued)
     
@@ -55,6 +59,19 @@ async def list_books(
         book.digital_book_id = link.digital_book_id if link else None
         
     return books
+
+
+@router.get("/languages")
+async def list_languages(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get unique languages for filtering."""
+    languages = db.query(Book.language).filter(
+        Book.language != None,
+        Book.language != ""
+    ).distinct().all()
+    return [l[0] for l in languages]
 
 
 @router.get("/books/available")

@@ -182,8 +182,6 @@
                         
                         const meta = chart.getDatasetMeta(0);
                         
-                        console.log('Drawing labels, bars count:', meta.data.length);
-                        
                         meta.data.forEach((bar, index) => {
                             const value = chart.data.datasets[0].data[index];
                             const label = chart.data.labels[index];
@@ -193,8 +191,6 @@
                             const y = bar.y;
                             const base = bar.base;
                             const width = x - base;
-                            
-                            console.log(`Bar ${index}: ${label}, width=${width}, x=${x}, base=${base}, y=${y}`);
                             
                             // Text styling
                             ctx.fillStyle = 'white';

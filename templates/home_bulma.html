@@ -5,89 +5,7 @@
 {% block content %}
 <div class="hero-gradient" style="min-height: 100vh;">
     <!-- Navbar -->
-    <nav class="navbar is-white is-fixed-top has-shadow" role="navigation" aria-label="main navigation" x-data="navbarApp()">
-        <div class="container">
-            <div class="navbar-brand">
-                <a class="navbar-item" href="/">
-                    <div class="has-gradient-navy is-flex is-align-items-center is-justify-content-center" style="width: 48px; height: 48px; border-radius: 8px; margin-right: 12px;">
-                        <span class="icon is-large has-text-white">
-                            <i class="fas fa-book fa-lg"></i>
-                        </span>
-                    </div>
-                    <div>
-                        <p class="navbar-brand-text mb-0">TIC Nexus</p>
-                        <p class="navbar-brand-subtext">Bharat Electronics Limited</p>
-                    </div>
-                </a>
-
-                <a role="button" class="navbar-burger" :class="{ 'is-active': mobileMenuActive }" @click="mobileMenuActive = !mobileMenuActive" aria-label="menu" aria-expanded="false">
-                    <span aria-hidden="true"></span>
-                    <span aria-hidden="true"></span>
-                    <span aria-hidden="true"></span>
-                </a>
-            </div>
-
-            <div class="navbar-menu" :class="{ 'is-active': mobileMenuActive }">
-                <div class="navbar-end">
-                    <a class="navbar-item has-text-weight-semibold" href="/">
-                        <span class="icon">
-                            <i class="fas fa-home"></i>
-                        </span>
-                        <span>Home</span>
-                    </a>
-                    <a class="navbar-item has-text-weight-semibold" href="/public/digital-library">
-                        <span class="icon">
-                            <i class="fas fa-book-open"></i>
-                        </span>
-                        <span>Digital Library</span>
-                    </a>
-                    
-                    <!-- Show when NOT logged in -->
-                    <div class="navbar-item" x-show="!isLoggedIn">
-                        <div class="buttons">
-                            <a href="/login" class="button has-gradient-emerald has-text-weight-bold">
-                                <span class="icon">
-                                    <i class="fas fa-sign-in-alt"></i>
-                                </span>
-                                <span>Login</span>
-                            </a>
-                        </div>
-                    </div>
-                    
-                    <!-- Show when logged in -->
-                    <div x-show="isLoggedIn" class="navbar-item has-dropdown is-hoverable">
-                        <a class="navbar-link">
-                            <span class="icon has-text-success">
-                                <i class="fas fa-user-circle"></i>
-                            </span>
-                            <span x-text="username" class="has-text-weight-semibold"></span>
-                        </a>
-                        <div class="navbar-dropdown is-right">
-                            <a class="navbar-item" href="/dashboard">
-                                <span class="icon has-text-info">
-                                    <i class="fas fa-tachometer-alt"></i>
-                                </span>
-                                <span>Dashboard</span>
-                            </a>
-                            <a class="navbar-item" href="/circulation">
-                                <span class="icon has-text-primary">
-                                    <i class="fas fa-exchange-alt"></i>
-                                </span>
-                                <span>Circulation</span>
-                            </a>
-                            <hr class="navbar-divider">
-                            <a class="navbar-item" @click.prevent="logout">
-                                <span class="icon has-text-danger">
-                                    <i class="fas fa-sign-out-alt"></i>
-                                </span>
-                                <span>Logout</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
+    {% include 'navbar_public.html' %}
 
     <!-- Hero Section -->
     <section class="hero is-medium" style="margin-top: 52px;">
@@ -308,18 +226,115 @@
                     <div class="box has-shadow has-hover-lift animate__animated animate__fadeInUp animate__delay-2s" style="height: 100%; border-radius: 12px;">
                         <div class="has-text-centered">
                             <div class="is-inline-flex is-align-items-center is-justify-content-center mb-4" 
-                                 style="width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);">
+                                 style="width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
                                 <span class="icon is-large has-text-white">
-                                    <i class="fas fa-clipboard-list fa-2x"></i>
+                                    <i class="fas fa-newspaper fa-2x"></i>
                                 </span>
                             </div>
-                            <h4 class="title is-4 mb-3" style="color: #052c52;">Circulation Management</h4>
+                            <h4 class="title is-4 mb-3" style="color: #052c52;">Magazines</h4>
                             <p class="has-text-grey">
-                                Efficiently manage book issues, returns, and track overdue items with our automated system.
+                                Latest Technical Journals, Periodicals and Industry Magazines.
                             </p>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Magazine Carousel Section -->
+    <section class="section has-background-light" x-data="magazineCarousel()" x-init="init()">
+        <div class="container">
+            <div class="has-text-centered mb-6">
+                <h2 class="title is-2 has-text-weight-bold mb-4" style="color: #052c52;">Magazines & Periodicals</h2>
+                <p class="subtitle is-5 has-text-grey mt-2">Latest technical journals and magazines available for in-library reading</p>
+            </div>
+
+            <style>
+                .magazine-carousel-wrapper {
+                    overflow: hidden;
+                    position: relative;
+                    padding: 40px 0;
+                    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+                }
+                .magazine-track {
+                    display: flex;
+                    width: max-content;
+                    animation: scroll-magazines 60s linear infinite;
+                }
+                .magazine-track:hover {
+                    animation-play-state: paused;
+                }
+                @keyframes scroll-magazines {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-50%); }
+                }
+                .magazine-item {
+                    width: 210px;
+                    height: 295px;
+                    margin: 0 20px;
+                    flex-shrink: 0;
+                    background: #fff;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                    position: relative;
+                    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    cursor: pointer;
+                }
+                .magazine-item:hover {
+                    transform: scale(1.05) translateY(-10px);
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+                }
+                .magazine-item img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    border-radius: 12px;
+                }
+                .magazine-info-overlay {
+                    position: absolute;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    padding: 15px;
+                    background: linear-gradient(transparent, rgba(5, 44, 82, 0.9));
+                    color: white;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                }
+                .magazine-item:hover .magazine-info-overlay {
+                    opacity: 1;
+                }
+            </style>
+
+            <div x-show="magazines.length > 0" class="magazine-carousel-wrapper">
+                <div class="magazine-track">
+                    <!-- Original List -->
+                    <template x-for="(mag, index) in magazines" :key="'orig-' + index">
+                        <div class="magazine-item">
+                            <img :src="mag.cover_image || 'https://via.placeholder.com/210x295?text=No+Cover'" :alt="mag.title">
+                            <div class="magazine-info-overlay">
+                                <p class="has-text-weight-bold is-size-6" x-text="mag.title"></p>
+                                <p class="is-size-7" x-text="mag.language"></p>
+                            </div>
+                        </div>
+                    </template>
+                    <!-- Duplicate List for Seamless Loop -->
+                    <template x-for="(mag, index) in magazines" :key="'dup-' + index">
+                        <div class="magazine-item">
+                            <img :src="mag.cover_image || 'https://via.placeholder.com/210x295?text=No+Cover'" :alt="mag.title">
+                            <div class="magazine-info-overlay">
+                                <p class="has-text-weight-bold is-size-6" x-text="mag.title"></p>
+                                <p class="is-size-7" x-text="mag.language"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div x-show="magazines.length === 0" class="has-text-centered py-6">
+                <p class="has-text-grey is-size-5">New magazines arriving soon!</p>
             </div>
         </div>
     </section>
@@ -374,56 +389,6 @@
 
 {% block extra_js %}
 <script>
-    function navbarApp() {
-        return {
-            mobileMenuActive: false,
-            isLoggedIn: false,
-            username: '',
-            userRole: '',
-            dashboardUrl: '/dashboard',
-
-            init() {
-                // Check if user is logged in
-                const token = localStorage.getItem('access_token');
-                const role = localStorage.getItem('user_role');
-                
-                if (token) {
-                    this.isLoggedIn = true;
-                    this.userRole = role || '';
-                    this.getUserInfo();
-                }
-            },
-
-            async getUserInfo() {
-                const token = localStorage.getItem('access_token');
-                try {
-                    const response = await fetch('/api/user/me', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    
-                    if (response.ok) {
-                        const user = await response.json();
-                        this.username = user.username;
-                    } else {
-                        // Token invalid, clear storage
-                        this.logout();
-                    }
-                } catch (error) {
-                    console.error('Error fetching user info:', error);
-                }
-            },
-
-            logout() {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('user_role');
-                localStorage.removeItem('user_id');
-                this.isLoggedIn = false;
-                this.username = '';
-                window.location.href = '/';
-            }
-        }
-    }
-
     function searchBooks() {
         return {
             searchQuery: '',
@@ -453,6 +418,24 @@
                     this.showNoResults = true;
                 } finally {
                     this.loading = false;
+                }
+            }
+        }
+    }
+
+    function magazineCarousel() {
+        return {
+            magazines: [],
+            async init() {
+                try {
+                    const response = await fetch('/api/public/magazines');
+                    if (response.ok) {
+                        this.magazines = await response.json();
+                        // Filter to only show magazines with cover images for the carousel
+                        this.magazines = this.magazines.filter(m => m.cover_image);
+                    }
+                } catch (error) {
+                    console.error('Error fetching magazines:', error);
                 }
             }
         }

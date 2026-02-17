@@ -279,3 +279,79 @@ class PasswordStrengthResponse(BaseModel):
     strength: str  # weak, medium, strong
     score: int  # 0-100
     feedback: list[str]
+
+
+# Magazine Schemas
+class VendorCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    contact_details: Optional[str] = None
+
+
+class VendorResponse(BaseModel):
+    id: int
+    name: str
+    contact_details: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MagazineCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    language: str = Field(default="English")
+    frequency: Optional[str] = None
+    category: Optional[str] = None
+
+
+class MagazineUpdate(BaseModel):
+    title: Optional[str] = None
+    language: Optional[str] = None
+    frequency: Optional[str] = None
+    category: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class MagazineResponse(BaseModel):
+    id: int
+    title: str
+    language: str
+    frequency: Optional[str]
+    category: Optional[str]
+    cover_image: Optional[str]
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MagazineIssueCreate(BaseModel):
+    magazine_id: int
+    issue_description: str = Field(..., min_length=1, max_length=100)
+    received_date: Optional[datetime] = None
+    vendor_id: int
+    remarks: Optional[str] = None
+
+
+class MagazineIssueResponse(BaseModel):
+    id: int
+    magazine_id: int
+    issue_description: str
+    received_date: datetime
+    vendor_id: int
+    remarks: Optional[str]
+    created_at: datetime
+    vendor_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MagazineDetailResponse(MagazineResponse):
+    """Extended response with recent issues."""
+    recent_issues: list[MagazineIssueResponse] = []
+
+    class Config:
+        from_attributes = True

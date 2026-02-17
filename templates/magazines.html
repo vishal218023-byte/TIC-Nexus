@@ -1,0 +1,523 @@
+{% extends "base.html" %}
+
+{% block title %}Magazines Management - TIC Nexus{% endblock %}
+
+{% block extra_css %}
+<script src="/static/js/auth-check.js"></script>
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="columns is-gapless" style="min-height: 100vh;" x-data="magazineAdmin()">
+    <!-- Sidebar -->
+    {% set active_page = 'magazines' %}
+    {% include 'sidebar.html' %}
+
+    <!-- Main Content -->
+    <main class="column" style="background-color: #f8fafc;">
+        <div class="section">
+            <div class="container is-fluid">
+                <!-- Header -->
+                <div class="level mb-5">
+                    <div class="level-left">
+                        <div class="level-item">
+                            <div>
+                                <h1 class="title is-3 has-text-grey-dark is-spaced">Magazine Management</h1>
+                                <p class="subtitle is-6 has-text-grey">Manage technical journals, vendors, and receive new issues.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="level-right">
+                        <div class="level-item">
+                            <div class="buttons">
+                                <button class="button is-info" @click="openModal('addMagazine')">
+                                    <span class="icon"><i class="fas fa-plus"></i></span>
+                                    <span>Add New Magazine</span>
+                                </button>
+                                <button class="button is-primary" @click="openModal('addVendor')">
+                                    <span class="icon"><i class="fas fa-truck"></i></span>
+                                    <span>Add Vendor</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tabs is-boxed mt-4 mb-5">
+                    <ul>
+                        <li :class="{ 'is-active': activeTab === 'magazines' }">
+                            <a @click="activeTab = 'magazines'">
+                                <span class="icon is-small"><i class="fas fa-newspaper"></i></span>
+                                <span>Magazines List</span>
+                            </a>
+                        </li>
+                        <li :class="{ 'is-active': activeTab === 'vendors' }">
+                            <a @click="activeTab = 'vendors'">
+                                <span class="icon is-small"><i class="fas fa-truck"></i></span>
+                                <span>Vendors</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Magazines List Tab -->
+                <div x-show="activeTab === 'magazines'">
+                    <!-- Search Bar - Prominent -->
+                    <div class="box mb-5 has-gradient-emerald" style="padding: 2rem;">
+                        <div class="field">
+                            <div class="control has-icons-left has-icons-right is-large">
+                                <input 
+                                    x-model="searchQuery"
+                                    @input="debounceSearch"
+                                    type="text" 
+                                    placeholder="Search magazines by title, language, or category..."
+                                    class="input is-large"
+                                    style="border-radius: 50px; font-size: 1.1rem;"
+                                >
+                                <span class="icon is-left is-large">
+                                    <i class="fas fa-search fa-lg"></i>
+                                </span>
+                                <span class="icon is-right is-large" x-show="searchQuery" @click="clearSearch" style="pointer-events: all; cursor: pointer;">
+                                    <i class="fas fa-times-circle fa-lg"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="box mb-5">
+                        <div class="columns">
+                            <div class="column">
+                                <div class="field">
+                                    <label class="label is-small">Language</label>
+                                    <div class="control">
+                                        <div class="select is-fullwidth">
+                                            <select x-model="filterLanguage" @change="fetchMagazines">
+                                                <option value="">All Languages</option>
+                                                <template x-for="lang in filterOptions.languages" :key="lang">
+                                                    <option :value="lang" x-text="lang"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="column">
+                                <div class="field">
+                                    <label class="label is-small">Frequency</label>
+                                    <div class="control">
+                                        <div class="select is-fullwidth">
+                                            <select x-model="filterFrequency" @change="fetchMagazines">
+                                                <option value="">All Frequencies</option>
+                                                <template x-for="freq in filterOptions.frequencies" :key="freq">
+                                                    <option :value="freq" x-text="freq"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="column">
+                                <div class="field">
+                                    <label class="label is-small">Category</label>
+                                    <div class="control">
+                                        <div class="select is-fullwidth">
+                                            <select x-model="filterCategory" @change="fetchMagazines">
+                                                <option value="">All Categories</option>
+                                                <template x-for="cat in filterOptions.categories" :key="cat">
+                                                    <option :value="cat" x-text="cat"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Count -->
+                    <div class="mb-4">
+                        <p class="has-text-grey">
+                            <span x-show="!loading">
+                                Found <strong x-text="magazines.length"></strong> magazine<span x-show="magazines.length !== 1">s</span>
+                            </span>
+                            <span x-show="loading">
+                                <i class="fas fa-spinner fa-spin"></i> Loading...
+                            </span>
+                        </p>
+                    </div>
+
+                    <div class="columns is-multiline" x-show="!loading && magazines.length > 0">
+                        <template x-for="mag in magazines" :key="mag.id">
+                            <div class="column is-one-quarter-widescreen is-one-third-desktop is-half-tablet">
+                                <div class="card digital-book-card has-hover-lift" style="height: 100%;">
+                                    <div class="card-image" :class="mag.cover_image ? '' : 'has-gradient-blue'" style="min-height: 200px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                                        <template x-if="mag.cover_image">
+                                            <img :src="mag.cover_image" style="width: 100%; height: 200px; object-fit: cover;">
+                                        </template>
+                                        <template x-if="!mag.cover_image">
+                                            <span class="icon" style="font-size: 5rem;">
+                                                <i class="fas fa-newspaper has-text-white"></i>
+                                            </span>
+                                        </template>
+                                        <span class="tag is-info" style="position: absolute; top: 10px; right: 10px;" x-text="mag.language"></span>
+                                    </div>
+                                    <div class="card-content">
+                                        <p class="title is-6 has-text-grey-dark is-spaced" x-text="mag.title" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" :title="mag.title"></p>
+                                        <p class="subtitle is-7 has-text-grey mb-2">
+                                            <span x-show="mag.category" class="mr-3">
+                                                <span class="icon is-small"><i class="fas fa-tag"></i></span> <span x-text="mag.category"></span>
+                                            </span>
+                                            <span x-show="mag.frequency">
+                                                <span class="icon is-small"><i class="fas fa-clock"></i></span> <span x-text="mag.frequency"></span>
+                                            </span>
+                                        </p>
+                                        
+                                        <div class="buttons mt-4">
+                                            <button class="button is-success is-small is-fullwidth" @click="openModal('logIssue', mag)">
+                                                <span class="icon"><i class="fas fa-plus"></i></span>
+                                                <span>Log Issue</span>
+                                            </button>
+                                            <div class="field has-addons is-fullwidth mt-1" style="width: 100%;">
+                                                <p class="control is-expanded">
+                                                    <button class="button is-link is-light is-small is-fullwidth" @click="openModal('viewHistory', mag)">
+                                                        <span class="icon"><i class="fas fa-list"></i></span>
+                                                        <span>History</span>
+                                                    </button>
+                                                </p>
+                                                <p class="control">
+                                                    <button class="button is-info is-light is-small" @click="openModal('editMagazine', mag)">
+                                                        <span class="icon"><i class="fas fa-edit"></i></span>
+                                                    </button>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <!-- Loading/Empty States -->
+                    <div x-show="loading" class="has-text-centered py-6"><span class="icon is-large has-text-grey-light"><i class="fas fa-spinner fa-pulse fa-3x"></i></span><p class="title is-5 has-text-grey-light mt-4">Loading magazines...</p></div>
+                    <div x-show="!loading && magazines.length === 0" class="has-text-centered py-6"><span class="icon is-large has-text-grey-light"><i class="fas fa-newspaper fa-3x"></i></span><p class="title is-4 has-text-grey-light mt-4">No magazines found</p><p class="subtitle is-6 has-text-grey-light">Try adjusting your search or filters</p></div>
+                </div>
+
+                <!-- Vendors Tab -->
+                <div x-show="activeTab === 'vendors'">
+                    <div class="box">
+                        <table class="table is-fullwidth is-hoverable is-striped">
+                            <thead><tr><th>Vendor Name</th><th>Contact Details</th><th>Registered Date</th></tr></thead>
+                            <tbody>
+                                <template x-for="vendor in vendors" :key="vendor.id">
+                                    <tr>
+                                        <td class="has-text-weight-bold" x-text="vendor.name"></td>
+                                        <td x-text="vendor.contact_details || '-'"></td>
+                                        <td x-text="formatDate(vendor.created_at)"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- All Modals in one place -->
+    <!-- Add Magazine Modal -->
+    <div x-show="activeModal === 'addMagazine'" x-cloak class="modal" :class="{ 'is-active': activeModal === 'addMagazine' }">
+        <div class="modal-background" @click="activeModal = null"></div>
+        <div class="modal-card">
+            <header class="modal-card-head has-background-info"><p class="modal-card-title has-text-white">Add New Magazine Title</p><button class="delete" aria-label="close" @click="activeModal = null"></button></header>
+            <section class="modal-card-body">
+                <form @submit.prevent="saveMagazine">
+                    <div class="field"><label class="label">Magazine Title *</label><div class="control"><input class="input" type="text" x-model="newMag.title" placeholder="e.g., Electronics For You" required></div></div>
+                    <div class="columns"><div class="column"><div class="field"><label class="label">Language</label><div class="control"><input class="input" type="text" x-model="newMag.language" placeholder="e.g., English, Hindi"></div></div></div><div class="column"><div class="field"><label class="label">Frequency</label><div class="control"><input class="input" type="text" x-model="newMag.frequency" placeholder="e.g., Monthly, Weekly"></div></div></div></div>
+                    <div class="field"><label class="label">Category</label><div class="control"><input class="input" type="text" x-model="newMag.category" placeholder="e.g., Technical, General"></div></div>
+                    <div class="field"><label class="label">Cover Image</label><div class="file has-name is-fullwidth"><label class="file-label"><input class="file-input" type="file" @change="handleFileChange($event)"><span class="file-cta"><span class="icon"><i class="fas fa-upload"></i></span><span class="file-label">Choose a photo...</span></span><span class="file-name" x-text="fileName || 'No file selected'"></span></label></div></div>
+                </form>
+            </section>
+            <footer class="modal-card-foot"><button class="button is-success" @click="saveMagazine()" :class="{ 'is-loading': loading }">Save Magazine</button><button class="button" @click="activeModal = null">Cancel</button></footer>
+        </div>
+    </div>
+
+    <!-- Edit Magazine Modal -->
+    <div x-show="activeModal === 'editMagazine'" x-cloak class="modal" :class="{ 'is-active': activeModal === 'editMagazine' }">
+        <div class="modal-background" @click="activeModal = null"></div>
+        <div class="modal-card">
+            <header class="modal-card-head has-background-info"><p class="modal-card-title has-text-white">Edit Magazine: <span x-text="editMag.title"></span></p><button class="delete" aria-label="close" @click="activeModal = null"></button></header>
+            <section class="modal-card-body">
+                <form @submit.prevent="updateMagazine">
+                    <div class="field"><label class="label">Magazine Title *</label><div class="control"><input class="input" type="text" x-model="editMag.title" placeholder="e.g., Electronics For You" required></div></div>
+                    <div class="columns"><div class="column"><div class="field"><label class="label">Language</label><div class="control"><input class="input" type="text" x-model="editMag.language" placeholder="e.g., English, Hindi"></div></div></div><div class="column"><div class="field"><label class="label">Frequency</label><div class="control"><input class="input" type="text" x-model="editMag.frequency" placeholder="e.g., Monthly, Weekly"></div></div></div></div>
+                    <div class="field"><label class="label">Category</label><div class="control"><input class="input" type="text" x-model="editMag.category" placeholder="e.g., Technical, General"></div></div>
+                    <div class="field"><label class="label">Update Cover Image</label><div class="file has-name is-fullwidth"><label class="file-label"><input class="file-input" type="file" @change="handleFileChange($event)"><span class="file-cta"><span class="icon"><i class="fas fa-upload"></i></span><span class="file-label">Choose a photo...</span></span><span class="file-name" x-text="fileName || 'Leave empty to keep current'"></span></label></div></div>
+                </form>
+            </section>
+            <footer class="modal-card-foot"><button class="button is-info" @click="updateMagazine()" :class="{ 'is-loading': loading }">Update Magazine</button><button class="button" @click="activeModal = null">Cancel</button></footer>
+        </div>
+    </div>
+
+    <!-- Log Issue Modal -->
+    <div x-show="activeModal === 'logIssue'" x-cloak class="modal" :class="{ 'is-active': activeModal === 'logIssue' }">
+        <div class="modal-background" @click="activeModal = null"></div>
+        <div class="modal-card">
+            <header class="modal-card-head has-background-success"><p class="modal-card-title has-text-white">Log New Issue: <span x-text="currentMag ? currentMag.title : ''"></span></p><button class="delete" aria-label="close" @click="activeModal = null"></button></header>
+            <section class="modal-card-body">
+                <form @submit.prevent="saveIssue">
+                    <div class="field"><label class="label">Issue Description *</label><div class="control"><input class="input" type="text" x-model="newIssue.issue_description" placeholder="e.g., January 2024 or Vol. 45 No. 12" required></div></div>
+                    <div class="field"><label class="label">Received Date</label><div class="control"><input class="input" type="date" x-model="newIssue.received_date"></div></div>
+                    <div class="field"><label class="label">Vendor *</label><div class="control"><div class="select is-fullwidth"><select x-model="newIssue.vendor_id" required><option value="">Select Vendor</option><template x-for="v in vendors" :key="v.id"><option :value="v.id" x-text="v.name"></option></template></select></div></div></div>
+                    <div class="field"><label class="label">Remarks</label><div class="control"><textarea class="textarea" x-model="newIssue.remarks" rows="2"></textarea></div></div>
+                </form>
+            </section>
+            <footer class="modal-card-foot"><button class="button is-success" @click="saveIssue()" :class="{ 'is-loading': loading }">Log Issue</button><button class="button" @click="activeModal = null">Cancel</button></footer>
+        </div>
+    </div>
+
+    <!-- Add Vendor Modal -->
+    <div x-show="activeModal === 'addVendor'" x-cloak class="modal" :class="{ 'is-active': activeModal === 'addVendor' }">
+        <div class="modal-background" @click="activeModal = null"></div>
+        <div class="modal-card">
+            <header class="modal-card-head has-background-primary"><p class="modal-card-title has-text-white">Add New Vendor</p><button class="delete" aria-label="close" @click="activeModal = null"></button></header>
+            <section class="modal-card-body">
+                <form @submit.prevent="saveVendor">
+                    <div class="field"><label class="label">Vendor Name *</label><div class="control"><input class="input" type="text" x-model="newVendor.name" placeholder="Name of the supplier" required></div></div>
+                    <div class="field"><label class="label">Contact Details</label><div class="control"><textarea class="textarea" x-model="newVendor.contact_details" rows="3" placeholder="Address, Phone, Email..."></textarea></div></div>
+                </form>
+            </section>
+            <footer class="modal-card-foot"><button class="button is-success" @click="saveVendor()" :class="{ 'is-loading': loading }">Save Vendor</button><button class="button" @click="activeModal = null">Cancel</button></footer>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div x-show="activeModal === 'viewHistory'" x-cloak class="modal" :class="{ 'is-active': activeModal === 'viewHistory' }">
+        <div class="modal-background" @click="activeModal = null"></div>
+        <div class="modal-card">
+            <header class="modal-card-head has-background-link"><p class="modal-card-title has-text-white">Issue History: <span x-text="currentMag ? currentMag.title : ''"></span></p><button class="delete" aria-label="close" @click="activeModal = null"></button></header>
+            <section class="modal-card-body">
+                <div x-show="loading" class="has-text-centered"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                <table class="table is-fullwidth is-striped" x-show="!loading">
+                    <thead><tr><th>Issue</th><th>Received Date</th><th>Vendor</th></tr></thead>
+                    <tbody><template x-for="issue in issueHistory" :key="issue.id"><tr><td class="has-text-weight-bold" x-text="issue.issue_description"></td><td x-text="formatDate(issue.received_date)"></td><td x-text="issue.vendor_name"></td></tr></template></tbody>
+                </table>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function magazineAdmin() {
+        return {
+            activeTab: 'magazines',
+            magazines: [],
+            vendors: [],
+            issueHistory: [],
+            searchQuery: '',
+            filterLanguage: '',
+            filterFrequency: '',
+            filterCategory: '',
+            filterOptions: { languages: [], frequencies: [], categories: [] },
+            isAdmin: false,
+            userName: '',
+            loading: false,
+            searchTimeout: null,
+            
+            activeModal: null, // Single source of truth for modals
+            
+            currentMag: null,
+            fileName: '',
+            fileObject: null,
+            
+            newMag: { title: '', language: 'English', frequency: '', category: '' },
+            editMag: { id: null, title: '', language: '', frequency: '', category: '' },
+            newVendor: { name: '', contact_details: '' },
+            newIssue: { magazine_id: '', issue_description: '', received_date: new Date().toISOString().split('T')[0], vendor_id: '', remarks: '' },
+
+            debounceSearch() {
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(() => {
+                    this.fetchMagazines();
+                }, 300);
+            },
+
+            init() {
+                this.isAdmin = ['admin', 'librarian'].includes(localStorage.getItem('user_role'));
+                this.userName = localStorage.getItem('full_name') || localStorage.getItem('username') || 'User';
+                this.loading = true;
+                Promise.all([
+                    this.fetchMagazines(),
+                    this.fetchVendors(),
+                    this.loadFilters()
+                ]).finally(() => this.loading = false);
+            },
+
+            async openModal(modalName, data = null) {
+                if (data) {
+                    this.currentMag = data;
+                    if (modalName === 'editMagazine') {
+                        this.editMag = { id: data.id, title: data.title, language: data.language, frequency: data.frequency, category: data.category };
+                        this.fileName = '';
+                        this.fileObject = null;
+                    } else if (modalName === 'logIssue') {
+                        this.newIssue = { magazine_id: data.id, issue_description: '', received_date: new Date().toISOString().split('T')[0], vendor_id: this.vendors.length > 0 ? this.vendors[0].id : '', remarks: '' };
+                    } else if (modalName === 'viewHistory') {
+                        await this.viewIssues(data);
+                    }
+                }
+                if (modalName === 'addMagazine') {
+                    this.newMag = { title: '', language: 'English', frequency: '', category: '' };
+                    this.fileName = ''; this.fileObject = null;
+                }
+                if (modalName === 'addVendor') {
+                    this.newVendor = { name: '', contact_details: '' };
+                }
+                this.activeModal = modalName;
+            },
+
+            async fetchMagazines() {
+                const token = localStorage.getItem('access_token');
+                let url = new URL('/api/magazines', window.location.origin);
+                if (this.searchQuery) url.searchParams.append('q', this.searchQuery);
+                if (this.filterLanguage) url.searchParams.append('language', this.filterLanguage);
+                if (this.filterFrequency) url.searchParams.append('frequency', this.filterFrequency);
+                if (this.filterCategory) url.searchParams.append('category', this.filterCategory);
+
+                try {
+                    const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (response.ok) this.magazines = await response.json();
+                } catch (e) { console.error('Failed to fetch magazines:', e); }
+            },
+
+            async loadFilters() {
+                const token = localStorage.getItem('access_token');
+                const headers = { 'Authorization': `Bearer ${token}` };
+                try {
+                    const [langRes, freqRes, catRes] = await Promise.all([
+                        fetch('/api/magazines/filters/languages', { headers }),
+                        fetch('/api/magazines/filters/frequencies', { headers }),
+                        fetch('/api/magazines/filters/categories', { headers })
+                    ]);
+                    if (langRes.ok) this.filterOptions.languages = await langRes.json();
+                    if (freqRes.ok) this.filterOptions.frequencies = await freqRes.json();
+                    if (catRes.ok) this.filterOptions.categories = await catRes.json();
+                } catch (e) { console.error('Failed to load filters:', e); }
+            },
+
+            clearSearch() {
+                this.searchQuery = '';
+                this.fetchMagazines();
+            },
+
+            async fetchVendors() {
+                const token = localStorage.getItem('access_token');
+                try {
+                    const response = await fetch('/api/vendors', { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (response.ok) this.vendors = await response.json();
+                } catch (e) { console.error('Failed to fetch vendors:', e); }
+            },
+
+            handleFileChange(e) {
+                const file = e.target.files[0];
+                if (file) { this.fileName = file.name; this.fileObject = file; }
+            },
+
+            async saveMagazine() {
+                if (!this.newMag.title) return window.toast.error('Title is required');
+                this.loading = true;
+                const token = localStorage.getItem('access_token');
+                const formData = new FormData();
+                Object.entries(this.newMag).forEach(([key, value]) => formData.append(key, value));
+                if (this.fileObject) formData.append('cover_image', this.fileObject);
+
+                try {
+                    const response = await fetch('/api/magazines', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+                    if (response.ok) {
+                        window.toast.success('Magazine added successfully');
+                        this.activeModal = null;
+                        await this.fetchMagazines();
+                        await this.loadFilters();
+                    } else { const err = await response.json(); window.toast.error(err.detail || 'Error saving magazine'); }
+                } catch (e) { console.error(e); } finally { this.loading = false; }
+            },
+
+            async updateMagazine() {
+                if (!this.editMag.title) return window.toast.error('Title is required');
+                this.loading = true;
+                const token = localStorage.getItem('access_token');
+                
+                try {
+                    const response = await fetch(`/api/magazines/${this.editMag.id}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(this.editMag) });
+                    if (response.ok) {
+                        if (this.fileObject) {
+                            const formData = new FormData();
+                            formData.append('cover_image', this.fileObject);
+                            await fetch(`/api/magazines/${this.editMag.id}/upload-cover`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+                        }
+                        window.toast.success('Magazine updated successfully');
+                        this.activeModal = null;
+                        await this.fetchMagazines();
+                    } else { const err = await response.json(); window.toast.error(err.detail || 'Error updating magazine'); }
+                } catch (e) { console.error(e); } finally { this.loading = false; }
+            },
+
+            async saveVendor() {
+                if (!this.newVendor.name) return window.toast.error('Vendor name is required');
+                this.loading = true;
+                const token = localStorage.getItem('access_token');
+                try {
+                    const response = await fetch('/api/vendors', { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(this.newVendor) });
+                    if (response.ok) {
+                        window.toast.success('Vendor added successfully');
+                        this.activeModal = null;
+                        this.fetchVendors();
+                    } else { const err = await response.json(); window.toast.error(err.detail || 'Error saving vendor'); }
+                } catch (e) { console.error(e); } finally { this.loading = false; }
+            },
+
+            async saveIssue() {
+                if (!this.newIssue.issue_description || !this.newIssue.vendor_id) return window.toast.error('Description and Vendor are required');
+                this.loading = true;
+                const token = localStorage.getItem('access_token');
+                try {
+                    const response = await fetch('/api/magazines/issues', { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(this.newIssue) });
+                    if (response.ok) {
+                        window.toast.success('Issue logged successfully');
+                        this.activeModal = null;
+                    } else { const err = await response.json(); window.toast.error(err.detail || 'Error logging issue'); }
+                } catch (e) { console.error(e); } finally { this.loading = false; }
+            },
+
+            async viewIssues(mag) {
+                this.loading = true;
+                const token = localStorage.getItem('access_token');
+                try {
+                    const response = await fetch(`/api/magazines/${mag.id}/issues`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (response.ok) {
+                        this.issueHistory = await response.json();
+                    }
+                } catch (e) { console.error(e); } 
+                finally { this.loading = false; }
+            },
+
+            formatDate(dateStr) {
+                if (!dateStr) return '-';
+                return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            },
+
+            logout() {
+                localStorage.clear();
+                window.location.href = '/login';
+            },
+
+            openChangePasswordModal() {
+                if (window.openChangePasswordModal) window.openChangePasswordModal();
+            }
+        }
+    }
+</script>
+{% endblock %}

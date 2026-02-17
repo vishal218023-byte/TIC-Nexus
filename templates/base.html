@@ -56,10 +56,17 @@
         }
         .sidebar-nav {
             background: #052c52;
-            min-height: 100vh;
-            max-height: 100vh;
             width: 250px;
+            min-height: 100vh;
+            padding: 0 !important;
+        }
+        .sidebar-sticky {
+            position: sticky;
+            top: 0;
+            height: 100vh;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
         .sidebar-nav a {
             color: #d1d5db;

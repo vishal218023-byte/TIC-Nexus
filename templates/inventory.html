@@ -69,6 +69,20 @@
                             <div class="field">
                                 <div class="control">
                                     <div class="select is-fullwidth">
+                                        <select x-model="filterLanguage" @change="searchBooks">
+                                            <option value="">All Languages</option>
+                                            <template x-for="lang in languages" :key="lang">
+                                                <option :value="lang" x-text="lang"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column">
+                            <div class="field">
+                                <div class="control">
+                                    <div class="select is-fullwidth">
                                         <select x-model="filterStatus" @change="searchBooks">
                                             <option value="">All Status</option>
                                             <option value="false">Available</option>
@@ -279,8 +293,10 @@
         return {
             books: [],
             subjects: [],
+            languages: [],
             searchQuery: '',
             filterSubject: '',
+            filterLanguage: '',
             filterStatus: '',
             showModal: false,
             editMode: false,
@@ -296,6 +312,7 @@
                 this.userName = localStorage.getItem('full_name') || localStorage.getItem('username') || 'User';
                 await this.loadBooks();
                 await this.loadSubjects();
+                await this.loadLanguages();
             },
 
             updateStorageLocation() {
@@ -323,6 +340,7 @@
                 let url = '/api/books?limit=500';
                 if (this.searchQuery) url += `&search=${encodeURIComponent(this.searchQuery)}`;
                 if (this.filterSubject) url += `&subject=${encodeURIComponent(this.filterSubject)}`;
+                if (this.filterLanguage) url += `&language=${encodeURIComponent(this.filterLanguage)}`;
                 if (this.filterStatus) url += `&is_issued=${this.filterStatus}`;
 
                 const response = await fetch(url, {
@@ -340,6 +358,16 @@
                 });
                 if (response.ok) {
                     this.subjects = await response.json();
+                }
+            },
+
+            async loadLanguages() {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch('/api/languages', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    this.languages = await response.json();
                 }
             },
 

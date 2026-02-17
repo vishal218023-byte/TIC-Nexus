@@ -26,6 +26,7 @@ from app.schemas import (
 from app.circulation import issue_book, retrieve_book, extend_book, update_overdue_status
 from app.routes import router
 from app.digital_library_routes import router as digital_library_router
+from app.magazine_routes import router as magazine_router
 from app.password_reset import router as password_reset_router
 
 # Create database tables
@@ -44,12 +45,16 @@ LIBRARY_VAULT = os.path.join(BASE_DIR, "library_vault")
 DIGITAL_BOOKS_DIR = os.path.join(LIBRARY_VAULT, "digital_books")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+UPLOADS_DIR = os.path.join(STATIC_DIR, "uploads")
+MAGAZINE_UPLOADS = os.path.join(UPLOADS_DIR, "magazines")
 
 os.makedirs(LIBRARY_VAULT, exist_ok=True)
 os.makedirs(DIGITAL_BOOKS_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(os.path.join(STATIC_DIR, "css"), exist_ok=True)
 os.makedirs(os.path.join(STATIC_DIR, "js"), exist_ok=True)
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+os.makedirs(MAGAZINE_UPLOADS, exist_ok=True)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -60,6 +65,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 # Include API routes
 app.include_router(router)
 app.include_router(digital_library_router)
+app.include_router(magazine_router)
 app.include_router(password_reset_router)
 
 
@@ -279,6 +285,12 @@ async def public_digital_library_page(request: Request):
     return templates.TemplateResponse("public_digital_library.html", {"request": request})
 
 
+@app.get("/public/magazines", response_class=HTMLResponse)
+async def public_magazines_page(request: Request):
+    """Render public magazines page (no authentication required)."""
+    return templates.TemplateResponse("public_magazines.html", {"request": request})
+
+
 @app.get("/public/digital-library/view/{book_id}", response_class=HTMLResponse)
 async def public_digital_view_page(request: Request, book_id: int, db: Session = Depends(get_db)):
     """Render a public view page for a digital book with the correct title."""
@@ -332,12 +344,34 @@ async def digital_library_page(
 
 
 @app.get("/digital-library/{book_id}", response_class=HTMLResponse)
-async def digital_library_detail_page(
-    request: Request,
-    book_id: int
-):
+
+
+async def digital_library_detail_page(request: Request, book_id: int):
+
+
     """Render digital library detail page (login required - checked client-side)."""
+
+
     return templates.TemplateResponse("digital_library_detail.html", {"request": request})
+
+
+
+
+
+
+
+
+@app.get("/magazines", response_class=HTMLResponse)
+
+
+async def magazines_admin_page(request: Request):
+
+
+    """Render magazines management page (login required - checked client-side)."""
+
+
+    return templates.TemplateResponse("magazines.html", {"request": request})
+
 
 
 @app.get("/users", response_class=HTMLResponse)

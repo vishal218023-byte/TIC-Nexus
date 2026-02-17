@@ -9,46 +9,8 @@
 {% block content %}
 <div class="columns is-gapless" style="min-height: 100vh;" x-data="digitalLibraryApp()">
     <!-- Sidebar -->
-    <aside class="column is-narrow sidebar-nav">
-        <div class="p-5">
-            <a href="/" style="text-decoration: none;">
-                <h1 class="title is-4 has-text-white">TIC Nexus</h1>
-            </a>
-        </div>
-        
-        <nav class="menu">
-            <ul class="menu-list">
-                <li><a href="/">
-                    <span class="icon"><i class="fas fa-home"></i></span>
-                    <span>Home</span>
-                </a></li>
-                <li><a href="/dashboard">
-                    <span class="icon"><i class="fas fa-chart-line"></i></span>
-                    <span>Dashboard</span>
-                </a></li>
-                <li><a href="/inventory">
-                    <span class="icon"><i class="fas fa-book"></i></span>
-                    <span>Inventory</span>
-                </a></li>
-                <li><a href="/circulation">
-                    <span class="icon"><i class="fas fa-sync-alt"></i></span>
-                    <span>Circulation</span>
-                </a></li>
-                <li><a href="/digital-library" class="is-active">
-                    <span class="icon"><i class="fas fa-file-pdf"></i></span>
-                    <span>Digital Library</span>
-                </a></li>
-                <li><a href="/users" x-show="isAdmin">
-                    <span class="icon"><i class="fas fa-users"></i></span>
-                    <span>User Management</span>
-                </a></li>
-                <li style="margin-top: 2rem;"><a href="#" @click.prevent="logout">
-                    <span class="icon"><i class="fas fa-sign-out-alt"></i></span>
-                    <span>Logout</span>
-                </a></li>
-            </ul>
-        </nav>
-    </aside>
+    {% set active_page = 'digital-library' %}
+    {% include 'sidebar.html' %}
 
     <!-- Main Content -->
     <main class="column" style="background-color: #f8fafc;">
