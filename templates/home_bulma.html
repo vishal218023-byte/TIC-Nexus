@@ -193,6 +193,12 @@
                                                         </span>
                                                         <span x-text="book.isbn"></span>
                                                     </span>
+                                                    <span x-show="book.language" class="tag is-info is-light">
+                                                        <span class="icon is-small">
+                                                            <i class="fas fa-language"></i>
+                                                        </span>
+                                                        <span x-text="book.language"></span>
+                                                    </span>
                                                 </div>
                                                 <div style="flex-shrink: 0;">
                                                     <span x-show="book.is_issued" class="tag is-danger is-medium">

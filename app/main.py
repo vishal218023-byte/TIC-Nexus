@@ -231,6 +231,7 @@ async def public_search_books(
             "acc_no": book.acc_no,
             "isbn": book.isbn,
             "subject": book.subject,
+            "language": book.language,
             "is_issued": book.is_issued
         }
         for book in books

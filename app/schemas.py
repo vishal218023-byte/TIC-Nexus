@@ -47,6 +47,7 @@ class BookCreate(BaseModel):
     class_no: Optional[str] = None
     year: Optional[int] = Field(None, ge=1800, le=2100)
     isbn: Optional[str] = None
+    language: Optional[str] = "English"
     storage_loc: str
 
     @validator('storage_loc')
@@ -69,6 +70,7 @@ class BookUpdate(BaseModel):
     class_no: Optional[str] = None
     year: Optional[int] = Field(None, ge=1800, le=2100)
     isbn: Optional[str] = None
+    language: Optional[str] = None
     storage_loc: Optional[str] = None
 
     @validator('storage_loc')
@@ -92,6 +94,7 @@ class BookResponse(BaseModel):
     class_no: Optional[str]
     year: Optional[int]
     isbn: Optional[str]
+    language: Optional[str]
     storage_loc: str
     is_issued: bool
     created_at: datetime

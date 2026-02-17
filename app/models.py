@@ -35,6 +35,7 @@ class Book(Base):
     class_no = Column(String(50))
     year = Column(Integer)
     isbn = Column(String(20))
+    language = Column(String(50), nullable=True, default="English")
     storage_loc = Column(String(50), nullable=False)  # Format: TIC-R-\d+-S-\d+
     is_issued = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
