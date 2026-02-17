@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.database import get_db
-from app.models import User, Book, Transaction
+from app.models import User, Book, Transaction, BookDigitalLink
 from app.auth import get_current_user, get_current_admin_user, get_current_librarian_or_admin
 from app.schemas import BookCreate, BookUpdate, BookResponse, TransactionResponse
 from app.circulation import issue_book, retrieve_book, extend_book
@@ -48,6 +48,12 @@ async def list_books(
         query = query.filter(Book.is_issued == is_issued)
     
     books = query.offset(skip).limit(limit).all()
+    
+    # Populate digital_book_id for each book
+    for book in books:
+        link = db.query(BookDigitalLink).filter(BookDigitalLink.book_id == book.id).first()
+        book.digital_book_id = link.digital_book_id if link else None
+        
     return books
 
 
@@ -78,6 +84,10 @@ async def list_available_books(
     # Build response with availability status
     result = []
     for book in books:
+        # Check for digital links
+        link = db.query(BookDigitalLink).filter(BookDigitalLink.book_id == book.id).first()
+        digital_book_id = link.digital_book_id if link else None
+        
         result.append({
             "id": book.id,
             "acc_no": book.acc_no,
@@ -90,6 +100,7 @@ async def list_available_books(
             "storage_loc": book.storage_loc,
             "is_issued": book.is_issued,
             "can_issue": not book.is_issued,
+            "digital_book_id": digital_book_id,
             "created_at": book.created_at.isoformat(),
             "updated_at": book.updated_at.isoformat()
         })
@@ -107,6 +118,11 @@ async def get_book(
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
+    
+    # Populate digital_book_id
+    link = db.query(BookDigitalLink).filter(BookDigitalLink.book_id == book.id).first()
+    book.digital_book_id = link.digital_book_id if link else None
+    
     return book
 
 

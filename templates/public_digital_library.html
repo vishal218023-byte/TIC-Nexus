@@ -346,6 +346,10 @@
             searchTimeout: null,
 
             async init() {
+                // Check for search query in URL
+                const urlParams = new URLSearchParams(window.location.search);
+                this.searchQuery = urlParams.get('search') || '';
+                
                 // Check if user is logged in
                 const token = localStorage.getItem('access_token');
                 if (token) {
@@ -428,8 +432,7 @@
                     window.toast.info('Only PDF files can be viewed in browser. Please download to view.');
                     return;
                 }
-                this.viewUrl = `/api/digital-library/${bookId}/view`;
-                this.showViewModal = true;
+                window.location.href = `/public/digital-library/view/${bookId}`;
             },
 
             downloadBook(bookId) {

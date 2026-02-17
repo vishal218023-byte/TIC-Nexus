@@ -104,9 +104,20 @@
                                     <td x-text="book.subject || '-'"></td>
                                     <td x-text="book.storage_loc"></td>
                                     <td>
-                                        <span :class="book.is_issued ? 'tag is-warning' : 'tag is-success'">
-                                            <span x-text="book.is_issued ? 'Issued' : 'Available'"></span>
-                                        </span>
+                                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                            <span :class="book.is_issued ? 'tag is-warning' : 'tag is-success'">
+                                                <span x-text="book.is_issued ? 'Issued' : 'Available'"></span>
+                                            </span>
+                                            <a x-show="book.digital_book_id" 
+                                               :href="'/digital-library/' + book.digital_book_id" 
+                                               class="tag is-info is-light" 
+                                               title="Digital Version Available">
+                                                <span class="icon is-small">
+                                                    <i class="fas fa-book-open"></i>
+                                                </span>
+                                                <span>Digital</span>
+                                            </a>
+                                        </div>
                                     </td>
                                     <td>
                                         <div class="buttons are-small">

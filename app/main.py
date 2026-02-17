@@ -223,8 +223,21 @@ async def public_search_books(
         )
     ).limit(20).all()
     
-    return [
-        {
+    results = []
+    for book in books:
+        # Check for digital links
+        digital_link = db.query(BookDigitalLink).filter(BookDigitalLink.book_id == book.id).first()
+        digital_book_id = None
+        digital_book_format = None
+        
+        if digital_link:
+            digital_book_id = digital_link.digital_book_id
+            # Get format for public linking
+            digital_book = db.query(DigitalBook).filter(DigitalBook.id == digital_book_id).first()
+            if digital_book:
+                digital_book_format = digital_book.file_format
+        
+        results.append({
             "id": book.id,
             "title": book.title,
             "author": book.author,
@@ -232,10 +245,12 @@ async def public_search_books(
             "isbn": book.isbn,
             "subject": book.subject,
             "language": book.language,
-            "is_issued": book.is_issued
-        }
-        for book in books
-    ]
+            "is_issued": book.is_issued,
+            "digital_book_id": digital_book_id,
+            "digital_book_format": digital_book_format
+        })
+    
+    return results
 
 
 @app.get("/api/public/stats")
@@ -262,6 +277,23 @@ async def public_stats(db: Session = Depends(get_db)):
 async def public_digital_library_page(request: Request):
     """Render public digital library browse page (no authentication required)."""
     return templates.TemplateResponse("public_digital_library.html", {"request": request})
+
+
+@app.get("/public/digital-library/view/{book_id}", response_class=HTMLResponse)
+async def public_digital_view_page(request: Request, book_id: int, db: Session = Depends(get_db)):
+    """Render a public view page for a digital book with the correct title."""
+    digital_book = db.query(DigitalBook).filter(DigitalBook.id == book_id).first()
+    if not digital_book:
+        raise HTTPException(status_code=404, detail="Digital book not found")
+    
+    return templates.TemplateResponse(
+        "public_digital_view.html", 
+        {
+            "request": request, 
+            "book": digital_book,
+            "pdf_url": f"/api/digital-library/{book_id}/view"
+        }
+    )
 
 
 # Protected Page Routes (Authentication Required - Client-side check)

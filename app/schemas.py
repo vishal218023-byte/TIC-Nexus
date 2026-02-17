@@ -99,6 +99,7 @@ class BookResponse(BaseModel):
     is_issued: bool
     created_at: datetime
     updated_at: datetime
+    digital_book_id: Optional[int] = None
 
     class Config:
         from_attributes = True

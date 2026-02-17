@@ -200,7 +200,17 @@
                                                         <span x-text="book.language"></span>
                                                     </span>
                                                 </div>
-                                                <div style="flex-shrink: 0;">
+                                                <div style="flex-shrink: 0; display: flex; align-items: center; gap: 0.75rem;">
+                                                    <a x-show="book.digital_book_id" 
+                                                       :href="book.digital_book_format === 'pdf' ? '/public/digital-library/view/' + book.digital_book_id : '/api/digital-library/' + book.digital_book_id + '/download'" 
+                                                       class="tag is-info is-medium has-text-weight-bold"
+                                                       style="text-decoration: none; cursor: pointer; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white;">
+                                                        <span class="icon">
+                                                            <i class="fas fa-book-open"></i>
+                                                        </span>
+                                                        <span x-text="book.digital_book_format === 'pdf' ? 'Read Online' : 'Download Digital'"></span>
+                                                    </a>
+                                                    
                                                     <span x-show="book.is_issued" class="tag is-danger is-medium">
                                                         <span class="icon">
                                                             <i class="fas fa-times-circle"></i>
