@@ -1,6 +1,6 @@
 """Pydantic schemas for request/response validation."""
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, date
+from typing import Optional, Union, List
 from pydantic import BaseModel, Field, validator
 import re
 
@@ -52,12 +52,12 @@ class BookCreate(BaseModel):
 
     @validator('storage_loc')
     def validate_storage_location(cls, v):
-        """Validate storage location format: TIC-R-\d+-S-\d+"""
-        pattern = r'^TIC-R-\d+-S-\d+$'
+        """Validate storage location format: TIC-[RC]-\d+-S-\d+"""
+        pattern = r'^TIC-[RC]-\d+-S-\d+$'
         if not re.match(pattern, v):
             raise ValueError(
-                'Storage location must match format: TIC-R-[RackNumber]-S-[ShelfNumber] '
-                '(e.g., TIC-R-1-S-3)'
+                'Storage location must match format: TIC-R/C-[Number]-S-[Number] '
+                '(e.g., TIC-R-1-S-3 or TIC-C-2-S-5)'
             )
         return v
 
@@ -76,10 +76,10 @@ class BookUpdate(BaseModel):
     @validator('storage_loc')
     def validate_storage_location(cls, v):
         if v is not None:
-            pattern = r'^TIC-R-\d+-S-\d+$'
+            pattern = r'^TIC-[RC]-\d+-S-\d+$'
             if not re.match(pattern, v):
                 raise ValueError(
-                    'Storage location must match format: TIC-R-[RackNumber]-S-[ShelfNumber]'
+                    'Storage location must match format: TIC-R/C-[Number]-S-[Number]'
                 )
         return v
 
@@ -330,7 +330,7 @@ class MagazineResponse(BaseModel):
 class MagazineIssueCreate(BaseModel):
     magazine_id: int
     issue_description: str = Field(..., min_length=1, max_length=100)
-    received_date: Optional[datetime] = None
+    received_date: Optional[Union[datetime, date, str]] = None
     vendor_id: int
     remarks: Optional[str] = None
 

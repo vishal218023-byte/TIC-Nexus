@@ -777,7 +777,7 @@ chmod 755 library_vault/digital_books/
 **Issue: "Slow performance"**
 ```bash
 # Solution: Vacuum database
-sqlite3 data/tlc_nexus.db "VACUUM;"
+sqlite3 data/TIC_nexus.db "VACUUM;"
 
 # Increase worker threads
 waitress-serve --threads=8 app.main:app
@@ -807,7 +807,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 1. Check application logs
 2. Review [README.md](README.md)
 3. Check [QUICK_START.md](QUICK_START.md)
-4. Contact: tlc-support@bel.in
+4. Contact: TIC-support@bel.in
 
 ---
 
@@ -858,4 +858,4 @@ gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app
 
 **Version:** 1.0.0  
 **Last Updated:** February 2024  
-**Support:** tlc-support@bel.in
+**Support:** TIC-support@bel.in

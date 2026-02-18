@@ -11,6 +11,7 @@ from sqlalchemy import or_, func
 from app.database import get_db
 from app.models import User, DigitalBook, BookDigitalLink, Book
 from app.auth import get_current_user, get_current_admin_user, get_current_librarian_or_admin, get_current_user_optional
+from app.utils import format_subject
 from app.schemas import (
     DigitalBookCreate, 
     DigitalBookUpdate, 
@@ -27,7 +28,8 @@ _recent_downloads = {}
 
 # Allowed file formats
 ALLOWED_FORMATS = ["pdf", "epub", "mobi"]
-LIBRARY_VAULT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "library_vault", "digital_books")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LIBRARY_VAULT = os.path.join(BASE_DIR, "library_vault", "digital_books")
 
 # Ensure library vault exists
 os.makedirs(LIBRARY_VAULT, exist_ok=True)
@@ -168,6 +170,8 @@ async def create_digital_book(
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
     
     # Create database record
+    formatted_subject = format_subject(subject) if subject else None
+    
     digital_book = DigitalBook(
         title=title,
         author=author,
@@ -177,7 +181,7 @@ async def create_digital_book(
         publisher=publisher,
         publication_year=publication_year,
         isbn=isbn,
-        subject=subject,
+        subject=formatted_subject,
         description=description,
         language=language,
         category=category,
@@ -225,7 +229,7 @@ async def update_digital_book(
     if isbn is not None:
         digital_book.isbn = isbn
     if subject is not None:
-        digital_book.subject = subject
+        digital_book.subject = format_subject(subject)
     if description is not None:
         digital_book.description = description
     if language:
@@ -253,19 +257,38 @@ async def delete_digital_book(
     if not digital_book:
         raise HTTPException(status_code=404, detail="Digital book not found")
     
-    # Delete physical file
-    file_path = os.path.join(LIBRARY_VAULT, digital_book.file_path)
-    if os.path.exists(file_path):
-        try:
-            os.remove(file_path)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+    # Get physical file path
+    # Use os.path.basename to prevent directory traversal or absolute path issues stored in DB
+    filename = os.path.basename(digital_book.file_path)
+    file_path = os.path.join(LIBRARY_VAULT, filename)
     
-    # Delete database record (cascade will handle links)
+    # Also check parent directory as fallback (legacy storage)
+    parent_vault = os.path.dirname(LIBRARY_VAULT)
+    fallback_path = os.path.join(parent_vault, filename)
+    
+    # Delete physical file(s)
+    deleted_physical = False
+    for path in [file_path, fallback_path]:
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+                deleted_physical = True
+            except Exception as e:
+                # If we found the file but couldn't delete it, we should report an error
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Found file at {path} but failed to delete: {str(e)}"
+                )
+    
+    # Manual cleanup of links since cascade might not be configured in the DB/Model
+    db.query(BookDigitalLink).filter(BookDigitalLink.digital_book_id == digital_book_id).delete()
+    
+    # Delete database record
     db.delete(digital_book)
     db.commit()
     
-    return {"message": "Digital book deleted successfully"}
+    msg = "Digital book and file deleted successfully" if deleted_physical else "Digital book record deleted (physical file was already missing)"
+    return {"message": msg}
 
 
 @router.get("/{digital_book_id}/view")
@@ -297,11 +320,20 @@ async def view_digital_book(
     if not digital_book:
         raise HTTPException(status_code=404, detail="Digital book not found")
     
-    file_path = os.path.join(LIBRARY_VAULT, digital_book.file_path)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found on disk")
+    # Resolve physical file path
+    filename = os.path.basename(digital_book.file_path)
+    file_path = os.path.join(LIBRARY_VAULT, filename)
     
-    # Increment view count (only once per view, not on every retry)
+    # Check fallback path if not found in primary
+    if not os.path.exists(file_path):
+        parent_vault = os.path.dirname(LIBRARY_VAULT)
+        fallback_path = os.path.join(parent_vault, filename)
+        if os.path.exists(fallback_path):
+            file_path = fallback_path
+        else:
+            raise HTTPException(status_code=404, detail="File not found in vault")
+    
+    # Increment view count
     digital_book.view_count += 1
     db.commit()
     
@@ -350,11 +382,20 @@ async def download_digital_book(
     if not digital_book:
         raise HTTPException(status_code=404, detail="Digital book not found")
     
-    file_path = os.path.join(LIBRARY_VAULT, digital_book.file_path)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found on disk")
+    # Resolve physical file path
+    filename = os.path.basename(digital_book.file_path)
+    file_path = os.path.join(LIBRARY_VAULT, filename)
     
-    # Increment download count (with duplicate prevention)
+    # Check fallback path if not found in primary
+    if not os.path.exists(file_path):
+        parent_vault = os.path.dirname(LIBRARY_VAULT)
+        fallback_path = os.path.join(parent_vault, filename)
+        if os.path.exists(fallback_path):
+            file_path = fallback_path
+        else:
+            raise HTTPException(status_code=404, detail="File not found in vault")
+    
+    # Increment download count
     # Use user ID if authenticated, otherwise use IP-based tracking
     user_identifier = str(current_user.id) if current_user else "anonymous"
     download_key = f"{user_identifier}_{digital_book_id}"

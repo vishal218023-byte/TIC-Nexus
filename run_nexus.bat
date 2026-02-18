@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 > nul
-title TLC Nexus - BEL Technical Literature Center
+title TIC Nexus - BEL Technical Literature Center
 color 0A
 
 echo ========================================
-echo  TLC Nexus - BEL Library System
+echo  TIC Nexus - BEL Library System
 echo  Starting Application...
 echo ========================================
 echo.
@@ -46,7 +46,7 @@ if not exist "static\css\tailwind.css" (
 
 echo.
 echo ========================================
-echo  Starting TLC Nexus Server...
+echo  Starting TIC Nexus Server...
 echo ========================================
 echo.
 echo Server will be available at:

@@ -87,7 +87,10 @@ python scripts/test_application.py
 ---
 
 ## 🔐 Security & Safety
-- **Secrets:** `SECRET_KEY` in `app/auth.py` must be updated for production.
+- **Environment & Credentials:** Default credentials are stored in `.env`.
+    - **Admin Username:** `admin`
+    - **Admin Password:** `admin123`
+- **Secrets:** `SECRET_KEY` in `app/auth.py` and `.env` must be updated for production.
 - **Passwords:** Never store plain text; always use `bcrypt` via `auth.py` utilities.
 - **Validation:** Use Pydantic schemas in `app/schemas.py` for all incoming API data.
 

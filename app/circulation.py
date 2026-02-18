@@ -30,6 +30,13 @@ def issue_book(db: Session, book_id: int, user_id: int, due_date: datetime, note
             detail=f"Book '{book.title}' (Acc No: {book.acc_no}) is already issued"
         )
     
+    # Check if book is for reference only
+    if book.subject and "REFERENCE ONLY" in book.subject.upper():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Book '{book.title}' (Acc No: {book.acc_no}) is for reference only and cannot be issued."
+        )
+    
     # Check if user exists
     user = db.query(User).filter(User.id == user_id).first()
     if not user:

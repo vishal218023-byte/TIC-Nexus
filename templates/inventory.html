@@ -42,7 +42,7 @@
                                         x-model="searchQuery"
                                         @input="searchBooks"
                                         type="text" 
-                                        placeholder="Search by title, author, acc no..."
+                                        placeholder="Search by Title, Author, Acc No..."
                                         class="input"
                                     >
                                     <span class="icon is-left">
@@ -176,11 +176,20 @@
                                 <label class="label">Storage Location *</label>
                                 <div class="field has-addons">
                                     <div class="control">
-                                        <a class="button is-static">
-                                            TIC-R-
-                                        </a>
+                                        <a class="button is-static" style="padding: 0 0.5em;">TIC-</a>
                                     </div>
-                                    <div class="control is-expanded">
+                                    <div class="control">
+                                        <div class="select">
+                                            <select x-model="storageType" @change="updateStorageLocation" style="min-width: 3.5em; padding-right: 1.5em;">
+                                                <option value="R">R</option>
+                                                <option value="C">C</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="control">
+                                        <a class="button is-static" style="padding: 0 0.3em;">-</a>
+                                    </div>
+                                    <div class="control" style="width: 60px;">
                                         <input 
                                             x-model="rackNumber" 
                                             @input="updateStorageLocation"
@@ -189,14 +198,13 @@
                                             placeholder="1" 
                                             required 
                                             class="input"
+                                            style="padding-right: 5px; padding-left: 5px;"
                                         >
                                     </div>
                                     <div class="control">
-                                        <a class="button is-static">
-                                            -S-
-                                        </a>
+                                        <a class="button is-static" style="padding: 0 0.4em;">-S-</a>
                                     </div>
-                                    <div class="control is-expanded">
+                                    <div class="control" style="width: 60px;">
                                         <input 
                                             x-model="shelfNumber" 
                                             @input="updateStorageLocation"
@@ -205,6 +213,7 @@
                                             placeholder="3" 
                                             required 
                                             class="input"
+                                            style="padding-right: 5px; padding-left: 5px;"
                                         >
                                     </div>
                                 </div>
@@ -305,6 +314,7 @@
             currentBook: {},
             rackNumber: '',
             shelfNumber: '',
+            storageType: 'R',
 
             async init() {
                 const userRole = localStorage.getItem('user_role');
@@ -317,19 +327,21 @@
 
             updateStorageLocation() {
                 if (this.rackNumber && this.shelfNumber) {
-                    this.currentBook.storage_loc = `TIC-R-${this.rackNumber}-S-${this.shelfNumber}`;
+                    this.currentBook.storage_loc = `TIC-${this.storageType}-${this.rackNumber}-S-${this.shelfNumber}`;
                 } else {
                     this.currentBook.storage_loc = '';
                 }
             },
 
             parseStorageLocation(storageLocation) {
-                // Parse existing storage location like "TIC-R-1-S-3"
-                const match = storageLocation.match(/^TIC-R-(\d+)-S-(\d+)$/);
+                // Parse existing storage location like "TIC-R-1-S-3" or "TIC-C-2-S-5"
+                const match = storageLocation.match(/^TIC-([RC])-(\d+)-S-(\d+)$/);
                 if (match) {
-                    this.rackNumber = match[1];
-                    this.shelfNumber = match[2];
+                    this.storageType = match[1];
+                    this.rackNumber = match[2];
+                    this.shelfNumber = match[3];
                 } else {
+                    this.storageType = 'R';
                     this.rackNumber = '';
                     this.shelfNumber = '';
                 }
@@ -380,6 +392,7 @@
                 this.currentBook = { acc_no: '', title: '', author: '', storage_loc: '' };
                 this.rackNumber = '';
                 this.shelfNumber = '';
+                this.storageType = 'R';
                 this.showModal = true;
             },
 
@@ -408,9 +421,10 @@
                     this.showModal = false;
                     await this.loadBooks();
                     await this.loadSubjects();
+                    window.toast.success(this.editMode ? 'Book updated successfully' : 'Book added successfully');
                 } else {
                     const error = await response.json();
-                    alert(error.detail);
+                    window.toast.error(error.detail || 'An error occurred');
                 }
             },
 
@@ -425,9 +439,10 @@
 
                 if (response.ok) {
                     await this.loadBooks();
+                    window.toast.success('Book deleted successfully');
                 } else {
                     const error = await response.json();
-                    alert(error.detail);
+                    window.toast.error(error.detail || 'An error occurred');
                 }
             },
 

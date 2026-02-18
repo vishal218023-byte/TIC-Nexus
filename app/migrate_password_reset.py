@@ -18,7 +18,7 @@ from app.models import PasswordResetToken, PasswordHistory
 def run_migration():
     """Create password reset tables."""
     print("=" * 60)
-    print("TLC Nexus - Password Reset Tables Migration")
+    print("TIC Nexus - Password Reset Tables Migration")
     print("=" * 60)
     print()
     

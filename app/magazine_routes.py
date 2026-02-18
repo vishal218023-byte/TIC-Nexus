@@ -2,8 +2,8 @@
 import os
 import shutil
 import uuid
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, date
+from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -240,10 +240,33 @@ async def log_magazine_issue(
     if current_user.role not in ["admin", "librarian"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
+    # Robustly handle received_date
+    rd = None
+    if issue.received_date:
+        if isinstance(issue.received_date, datetime):
+            rd = issue.received_date
+        elif isinstance(issue.received_date, date):
+            # Convert date to datetime at midnight
+            rd = datetime.combine(issue.received_date, datetime.min.time())
+        elif isinstance(issue.received_date, str):
+            try:
+                # Try full ISO format first
+                rd = datetime.fromisoformat(issue.received_date.replace('Z', '+00:00'))
+            except ValueError:
+                try:
+                    # Try YYYY-MM-DD format
+                    rd = datetime.strptime(issue.received_date, "%Y-%m-%d")
+                except ValueError:
+                    rd = datetime.utcnow()
+        else:
+            rd = datetime.utcnow()
+    else:
+        rd = datetime.utcnow()
+    
     new_issue = MagazineIssue(
         magazine_id=issue.magazine_id,
         issue_description=issue.issue_description,
-        received_date=issue.received_date or datetime.utcnow(),
+        received_date=rd,
         vendor_id=issue.vendor_id,
         remarks=issue.remarks
     )

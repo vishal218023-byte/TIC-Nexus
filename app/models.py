@@ -1,4 +1,4 @@
-"""SQLAlchemy models for TLC Nexus."""
+"""SQLAlchemy models for TIC Nexus."""
 from datetime import datetime
 from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
@@ -36,7 +36,7 @@ class Book(Base):
     year = Column(Integer)
     isbn = Column(String(20))
     language = Column(String(50), nullable=True, default="English")
-    storage_loc = Column(String(50), nullable=False)  # Format: TIC-R-\d+-S-\d+
+    storage_loc = Column(String(50), nullable=False)  # Format: TIC-[RC]-\d+-S-\d+
     is_issued = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -13,6 +13,7 @@ from app.models import User, Book, Transaction, BookDigitalLink
 from app.auth import get_current_user, get_current_admin_user, get_current_librarian_or_admin
 from app.schemas import BookCreate, BookUpdate, BookResponse, TransactionResponse
 from app.circulation import issue_book, retrieve_book, extend_book
+from app.utils import format_subject
 
 router = APIRouter(prefix="/api")
 
@@ -105,6 +106,9 @@ async def list_available_books(
         link = db.query(BookDigitalLink).filter(BookDigitalLink.book_id == book.id).first()
         digital_book_id = link.digital_book_id if link else None
         
+        # Check if reference only
+        is_reference = book.subject and "REFERENCE ONLY" in book.subject.upper()
+        
         result.append({
             "id": book.id,
             "acc_no": book.acc_no,
@@ -116,7 +120,8 @@ async def list_available_books(
             "isbn": book.isbn,
             "storage_loc": book.storage_loc,
             "is_issued": book.is_issued,
-            "can_issue": not book.is_issued,
+            "can_issue": not book.is_issued and not is_reference,
+            "is_reference": is_reference,
             "digital_book_id": digital_book_id,
             "created_at": book.created_at.isoformat(),
             "updated_at": book.updated_at.isoformat()
@@ -158,7 +163,11 @@ async def create_book(
             detail=f"Book with accession number {book.acc_no} already exists"
         )
     
-    db_book = Book(**book.dict())
+    book_data = book.dict()
+    if book_data.get("subject"):
+        book_data["subject"] = format_subject(book_data["subject"])
+        
+    db_book = Book(**book_data)
     db.add(db_book)
     db.commit()
     db.refresh(db_book)
@@ -178,6 +187,9 @@ async def update_book(
         raise HTTPException(status_code=404, detail="Book not found")
     
     update_data = book_update.dict(exclude_unset=True)
+    if update_data.get("subject"):
+        update_data["subject"] = format_subject(update_data["subject"])
+        
     for field, value in update_data.items():
         setattr(db_book, field, value)
     

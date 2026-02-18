@@ -72,7 +72,7 @@ def download_file(url, destination):
 def main():
     """Main function to download all assets."""
     print("=" * 60)
-    print("TLC Nexus - Static Assets Downloader")
+    print("TIC Nexus - Static Assets Downloader")
     print("=" * 60)
     print()
     

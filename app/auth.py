@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models import User
 
 # Security configuration
-SECRET_KEY = "BEL-TLC-NEXUS-SECRET-KEY-CHANGE-IN-PRODUCTION"
+SECRET_KEY = "BEL-TIC-NEXUS-SECRET-KEY-CHANGE-IN-PRODUCTION"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
 

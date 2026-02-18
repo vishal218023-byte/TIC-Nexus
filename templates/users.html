@@ -344,10 +344,10 @@
                     if (response.ok) {
                         this.showModal = false;
                         await this.loadUsers();
-                        alert('User updated successfully');
+                        window.toast.success('User updated successfully');
                     } else {
                         const error = await response.json();
-                        alert(error.detail);
+                        window.toast.error(error.detail || 'Failed to update user');
                     }
                 } else {
                     // Create user
@@ -367,10 +367,10 @@
                     if (response.ok) {
                         this.showModal = false;
                         await this.loadUsers();
-                        alert('User created successfully');
+                        window.toast.success('User created successfully');
                     } else {
                         const error = await response.json();
-                        alert(error.detail);
+                        window.toast.error(error.detail || 'Failed to create user');
                     }
                 }
             },
@@ -386,10 +386,10 @@
 
                 if (response.ok) {
                     await this.loadUsers();
-                    alert('User deleted successfully');
+                    window.toast.success('User deleted successfully');
                 } else {
                     const error = await response.json();
-                    alert(error.detail);
+                    window.toast.error(error.detail || 'Failed to delete user');
                 }
             },
 
@@ -417,7 +417,7 @@
 
             async generateResetToken(user) {
                 if (!user.is_active) {
-                    alert('Cannot generate reset token for inactive user');
+                    window.toast.error('Cannot generate reset token for inactive user');
                     return;
                 }
 

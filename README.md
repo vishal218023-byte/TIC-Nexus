@@ -18,7 +18,7 @@
 #### 📚 **Physical Inventory Management**
 - Complete book catalog with detailed metadata (Author, Title, Publisher, ISBN, Subject, Year)
 - Unique accession number tracking
-- Storage location mapping (Rack & Shelf system: `TLC-R-{rack}-S-{shelf}`)
+- Storage location mapping (Rack & Shelf system: `TIC-[RC]-{rack}-S-{shelf}`)
 - Real-time availability status
 - Advanced search and filtering capabilities
 
@@ -228,7 +228,7 @@ For detailed installation instructions, see **[SETUP_GUIDE.md](SETUP_GUIDE.md)**
 3. **Add books to inventory**
    - Go to "Inventory" → "Add Book"
    - Fill in book details
-   - Use storage location format: `TLC-R-1-S-5` (Rack 1, Shelf 5)
+   - Use storage location format: `TIC-R-1-S-5` (Rack 1, Shelf 5)
 
 4. **Upload digital resources**
    - Navigate to "Digital Library"
@@ -373,7 +373,7 @@ All rights reserved. Unauthorized copying, distribution, or modification is proh
 
 For technical support or questions:
 - Internal: Contact IT Department
-- Email: tlc-support@bel.in (update with actual contact)
+- Email: TIC-support@bel.in (update with actual contact)
 
 ---
 

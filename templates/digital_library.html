@@ -216,10 +216,10 @@
                 if (response.ok) {
                     this.showUploadModal = false;
                     await this.loadBooks();
-                    alert('PDF uploaded successfully');
+                    window.toast.success('PDF uploaded successfully');
                 } else {
                     const error = await response.json();
-                    alert(error.detail);
+                    window.toast.error(error.detail || 'Upload failed');
                 }
             },
 
