@@ -1,11 +1,21 @@
 """Database configuration and session management."""
 import os
+import sys
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Ensure data directory exists
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+
+def get_base_dir():
+    """Get the base directory, handling PyInstaller frozen executables."""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+BASE_DIR = get_base_dir()
+
+DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 DATABASE_URL = f"sqlite:///{os.path.join(DATA_DIR, 'tic_nexus.db')}"

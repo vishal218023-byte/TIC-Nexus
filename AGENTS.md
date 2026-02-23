@@ -32,6 +32,7 @@ Server:   Uvicorn (dev) / Waitress (prod)
 - **Digital Library**: PDF upload, viewing, download tracking
 - **User Management**: 3-tier RBAC (Admin, Librarian, Viewer)
 - **Dashboard**: Statistics, charts, real-time status
+- **Magazine Management**: Vendor and issue tracking
 
 ### Design Philosophy
 - **RESTful API**: Clear separation between API and web routes
@@ -41,10 +42,39 @@ Server:   Uvicorn (dev) / Waitress (prod)
 
 ---
 
+## 📚 Comprehensive Documentation
+
+For detailed documentation, see the `docs/` folder:
+
+| Document | Description |
+|----------|-------------|
+| [docs/index.md](docs/index.md) | Documentation index and overview |
+| [docs/project-overview.md](docs/project-overview.md) | Technology stack, core features, architecture |
+| [docs/api-routes.md](docs/api-routes.md) | Complete API endpoints with request/response examples |
+| [docs/web-routes.md](docs/web-routes.md) | Web page routes and template mapping |
+| [docs/data-models.md](docs/data-models.md) | Database schema and table relationships |
+| [docs/data-flow.md](docs/data-flow.md) | How data flows through the system |
+| [docs/authentication.md](docs/authentication.md) | JWT, RBAC, password security |
+
+---
+
 ## 🏗️ Architecture & Design Patterns
 
 ### Backend Structure
 
+```
+app/
+├── main.py                    # FastAPI app, web routes, exception handlers
+├── models.py                  # SQLAlchemy models (10 tables)
+├── schemas.py                 # Pydantic schemas for validation
+├── database.py                # DB connection, session management
+├── auth.py                    # JWT auth, password hashing, dependencies
+├── routes.py                  # Book & circulation API endpoints
+├── digital_library_routes.py  # Digital library API endpoints
+├── magazine_routes.py         # Magazine API endpoints
+├── password_reset.py          # Password reset token management
+├── circulation.py             # Business logic for issue/return/extend
+└── password_utils.py         # Password validation utilities
 ```
 app/
 ├── main.py                    # FastAPI app, web routes, exception handlers
@@ -117,7 +147,12 @@ templates/
 ├── inventory.html         # Book CRUD operations
 ├── circulation.html       # Issue/Return/Extend tabs
 ├── digital_library*.html  # Digital library pages
-└── users.html             # User management (admin only)
+├── magazines.html         # Magazine management (admin/librarian)
+├── public_magazines.html  # Public magazine browse
+├── users.html             # User management (admin only)
+├── forgot_password.html   # Password reset request
+├── reset_password.html    # Password reset with token
+└── error.html             # Error page
 
 Each page uses:
 - Alpine.js for reactivity (x-data, x-show, x-if, x-for)
@@ -126,7 +161,7 @@ Each page uses:
 - Toast notifications for feedback
 ```
 
-### Database Models (8 Tables)
+### Database Models (10 Tables)
 
 ```python
 1. User              # Authentication, RBAC
@@ -136,6 +171,9 @@ Each page uses:
 5. BookDigitalLink   # Many-to-many: physical ↔ digital
 6. PasswordResetToken    # Password reset tokens
 7. PasswordHistory       # Prevent password reuse
+8. Vendor            # Magazine suppliers
+9. Magazine          # Magazine titles
+10. MagazineIssue    # Received magazine copies
 ```
 
 **Key Relationships:**

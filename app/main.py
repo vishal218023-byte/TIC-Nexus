@@ -1,5 +1,10 @@
 """Main FastAPI application for TIC Nexus."""
 import os
+import sys
+import webbrowser
+import threading
+import time
+import configparser
 from datetime import datetime, timedelta
 from typing import Optional, List
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Form, UploadFile, File, Query
@@ -10,7 +15,46 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 
-from app.database import engine, get_db, Base
+from app.database import engine, get_db, Base, BASE_DIR
+
+
+def get_bundled_dir(relative_path: str) -> str:
+    """Get path for bundled resources (templates, static) - works with PyInstaller."""
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+
+def get_external_dir(relative_path: str) -> str:
+    """Get path for external resources (data, library_vault) - uses executable directory."""
+    return os.path.join(BASE_DIR, relative_path)
+
+
+def load_config():
+    """Load configuration from config.ini file."""
+    config = configparser.ConfigParser()
+    config_path = os.path.join(BASE_DIR, "config.ini")
+    
+    defaults = {
+        'host': '0.0.0.0',
+        'port': '8000',
+        'secret_key': 'BEL-TIC-NEXUS-SECRET-KEY-CHANGE-IN-PRODUCTION'
+    }
+    
+    if os.path.exists(config_path):
+        config.read(config_path)
+        if config.has_section('server'):
+            defaults['host'] = config.get('server', 'host', fallback=defaults['host'])
+            defaults['port'] = config.get('server', 'port', fallback=defaults['port'])
+        if config.has_section('security'):
+            defaults['secret_key'] = config.get('security', 'secret_key', fallback=defaults['secret_key'])
+    
+    return defaults
+
+
+CONFIG = load_config()
 from app.models import User, Book, Transaction, DigitalBook, BookDigitalLink
 from app.auth import (
     authenticate_user, 
@@ -39,14 +83,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Setup directories
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LIBRARY_VAULT = os.path.join(BASE_DIR, "library_vault")
-DIGITAL_BOOKS_DIR = os.path.join(LIBRARY_VAULT, "digital_books")
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-UPLOADS_DIR = os.path.join(STATIC_DIR, "uploads")
-MAGAZINE_UPLOADS = os.path.join(UPLOADS_DIR, "magazines")
+# Setup directories - use bundled dirs for templates/static, external dirs for data
+LIBRARY_VAULT = get_external_dir("library_vault")
+DIGITAL_BOOKS_DIR = get_external_dir("library_vault/digital_books")
+STATIC_DIR = get_bundled_dir("static")
+TEMPLATES_DIR = get_bundled_dir("templates")
+UPLOADS_DIR = get_external_dir("static/uploads")
+MAGAZINE_UPLOADS = get_external_dir("static/uploads/magazines")
 
 os.makedirs(LIBRARY_VAULT, exist_ok=True)
 os.makedirs(DIGITAL_BOOKS_DIR, exist_ok=True)
@@ -380,5 +423,37 @@ async def users_page(
 ):
     """Render user management page (login required - checked client-side)."""
     return templates.TemplateResponse("users.html", {"request": request})
+
+
+def open_browser():
+    """Open browser after a short delay to let server start."""
+    time.sleep(1.5)
+    port = CONFIG.get('port', '8000')
+    webbrowser.open(f"http://localhost:{port}")
+
+
+def run_server():
+    """Run the server - used when running as executable."""
+    import uvicorn
+    
+    host = CONFIG.get('host', '0.0.0.0')
+    port = int(CONFIG.get('port', '8000'))
+    
+    print(f"\n{'='*50}")
+    print("  TIC Nexus - Technical Information Center")
+    print("  Bharat Electronics Limited")
+    print(f"{'='*50}")
+    print(f"  Server: http://{host}:{port}")
+    print(f"  Local:  http://localhost:{port}")
+    print(f"{'='*50}\n")
+    
+    if getattr(sys, 'frozen', False):
+        threading.Thread(target=open_browser, daemon=True).start()
+    
+    uvicorn.run(app, host=host, port=port)
+
+
+if __name__ == "__main__":
+    run_server()
 
 

@@ -5,11 +5,13 @@ __pycache__/
 *.so
 .Python
 venv/
+.venv/
 env/
 ENV/
 *.egg-info/
 dist/
 build/
+*.spec
 
 # Database
 data/
@@ -35,9 +37,19 @@ desktop.ini
 # Logs
 *.log
 
-# Environment
+# Environment & Secrets
 .env
 .env.local
+config.ini
+
+# AI Assistant configs
+.gemini/
+
+# Migration data files
+*.xlsx
+
+# Screenshots
+screenshots/
 
 # Temporary files
 tmp_*

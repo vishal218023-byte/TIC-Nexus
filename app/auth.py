@@ -10,8 +10,30 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
 
-# Security configuration
-SECRET_KEY = "BEL-TIC-NEXUS-SECRET-KEY-CHANGE-IN-PRODUCTION"
+
+def get_secret_key() -> str:
+    """Get SECRET_KEY from config.ini or use default."""
+    import os
+    import configparser
+    import sys
+    
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    config_path = os.path.join(base_dir, "config.ini")
+    
+    if os.path.exists(config_path):
+        config = configparser.ConfigParser()
+        config.read(config_path)
+        if config.has_section('security') and config.has_option('security', 'secret_key'):
+            return config.get('security', 'secret_key')
+    
+    return "BEL-TIC-NEXUS-SECRET-KEY-CHANGE-IN-PRODUCTION"
+
+
+SECRET_KEY = get_secret_key()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
 
